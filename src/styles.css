@@ -95,7 +95,7 @@
 
 * { box-sizing: border-box; }
 
-html, body { margin: 0; padding: 0; background: #f0eee9; }
+html, body { margin: 0; padding: 0; background: var(--canvas); }
 body { font-family: var(--font-sans); }
 
 .dlc-root {
@@ -105,6 +105,24 @@ body { font-family: var(--font-sans); }
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+/* App container — mobile-first, centered on wider screens */
+.app-shell {
+  max-width: 520px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--canvas);
+  position: relative;
+  display: flex; flex-direction: column;
+}
+@media (min-width: 768px) {
+  body { background: var(--surface); }
+  .app-shell {
+    box-shadow: var(--sh-2);
+    border-left: 1px solid var(--hairline);
+    border-right: 1px solid var(--hairline);
+  }
 }
 
 .mono { font-family: var(--font-sans); font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
