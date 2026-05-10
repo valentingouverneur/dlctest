@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getHistory } from '../lib/scanHistory';
 import { getRecentScans } from '../lib/scans';
-import { getProductByEan, updateProduct } from '../lib/products';
+import { getProductByEan, updateProduct, createProduct } from '../lib/products';
 import { fetchFromOFF } from '../lib/openFoodFacts';
 import { searchPackshots } from '../lib/bingImages';
 import { Packshot } from '../primitives';
@@ -225,8 +225,14 @@ export function Affiche() {
     if (!modal?.product) return;
     setSaving(true);
     try {
-      await updateProduct(modal.product.ean, { image_url: url });
-      const updatedProduct = { ...modal.product, image_url: url };
+      const p = modal.product;
+      // If product comes from OFF (not yet in Supabase), create it; otherwise update
+      if (p.source === 'openfoodfacts') {
+        await createProduct({ ...p, image_url: url });
+      } else {
+        await updateProduct(p.ean, { image_url: url });
+      }
+      const updatedProduct = { ...p, image_url: url, source: undefined };
       setItems(prev => prev.map(it =>
         it.ean === modal.ean ? { ...it, product: updatedProduct } : it
       ));

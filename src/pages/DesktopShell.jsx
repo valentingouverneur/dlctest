@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Packshot, CopyField, SideItem, Pill } from '../primitives';
 import { Icon } from '../icons';
-import { searchProducts, getProductByEan, updateProduct } from '../lib/products';
+import { searchProducts, getProductByEan, updateProduct, createProduct } from '../lib/products';
 import { fetchFromOFF } from '../lib/openFoodFacts';
 import { getTodayCount, getHistory } from '../lib/scanHistory';
 import { getRecentScans } from '../lib/scans';
@@ -229,7 +229,12 @@ function DetailPanel({ product, onUpdate, onClose }) {
 
   const handlePickPackshot = async (url) => {
     try {
-      const updated = await updateProduct(product.ean, { image_url: url });
+      let updated;
+      if (product.source === 'openfoodfacts') {
+        updated = await createProduct({ ...product, image_url: url });
+      } else {
+        updated = await updateProduct(product.ean, { image_url: url });
+      }
       onUpdate(updated);
       setPickerPackshots([]);
     } catch {}
