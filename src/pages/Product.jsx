@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getProductByEan } from '../lib/products';
+import { addScan } from '../lib/scanHistory';
 import { Packshot, CopyField } from '../primitives';
 import { Icon } from '../icons';
 
@@ -20,6 +21,8 @@ function copyToClipboard(text) {
 
 export function Product() {
   const { ean } = useParams();
+  const [searchParams] = useSearchParams();
+  const fromScan = searchParams.get('from') === 'scan';
   const nav = useNavigate();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -31,7 +34,12 @@ export function Product() {
     setLoading(true);
     setErr(null);
     getProductByEan(ean)
-      .then(p => { if (!cancelled) setProduct(p); })
+      .then(p => {
+        if (!cancelled) {
+          setProduct(p);
+          if (p && fromScan) addScan(p);
+        }
+      })
       .catch(e => { if (!cancelled) setErr(e.message || 'Erreur'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };

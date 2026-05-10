@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { searchProducts } from '../lib/products';
+import { getTodayCount } from '../lib/scanHistory';
 import { Packshot } from '../primitives';
 import { Icon } from '../icons';
 
@@ -35,6 +36,12 @@ function ProductRow({ product, onClick }) {
           {product.brand && <span style={{ color: 'var(--ink-3)' }}>{product.brand}</span>}
           {product.brand && product.weight && <span style={{ color: 'var(--ink-5)' }}>·</span>}
           {product.weight && <span className="mono">{product.weight}</span>}
+          {!product.image_url && (
+            <>
+              <span style={{ color: 'var(--ink-5)' }}>·</span>
+              <span style={{ color: 'var(--warning)', fontSize: 11, fontWeight: 500 }}>Sans packshot</span>
+            </>
+          )}
         </div>
       </div>
       <div style={{ color: 'var(--ink-5)' }}><Icon.ChevronRight s={14}/></div>
@@ -46,18 +53,23 @@ export function Catalogue() {
   const nav = useNavigate();
   const [q, setQ] = useState('');
   const [cat, setCat] = useState(null);
+  const [needsReview, setNeedsReview] = useState(false);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
+  const [scanCount, setScanCount] = useState(0);
 
-  // Debounced fetch
+  useEffect(() => {
+    setScanCount(getTodayCount());
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const t = setTimeout(async () => {
       setLoading(true);
       setErr(null);
       try {
-        const data = await searchProducts({ query: q.trim(), category: cat, limit: 100 });
+        const data = await searchProducts({ query: q.trim(), category: cat, needsReview, limit: 100 });
         if (!cancelled) setProducts(data);
       } catch (e) {
         if (!cancelled) setErr(e.message || 'Erreur de chargement');
@@ -66,13 +78,22 @@ export function Catalogue() {
       }
     }, q ? 200 : 0);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [q, cat]);
+  }, [q, cat, needsReview]);
 
-  // If query looks like an EAN (8-13 digits), offer to jump straight to the product
   const eanShortcut = useMemo(() => {
     const t = q.trim();
     return /^\d{8,13}$/.test(t) ? t : null;
   }, [q]);
+
+  const setFilter = (category) => {
+    setCat(category);
+    setNeedsReview(false);
+  };
+
+  const toggleReview = () => {
+    setNeedsReview(r => !r);
+    setCat(null);
+  };
 
   return (
     <div className="app-shell">
@@ -124,10 +145,10 @@ export function Catalogue() {
           )}
         </div>
 
-        {/* Quick action — go to scanned EAN */}
+        {/* EAN shortcut */}
         {eanShortcut && (
           <button
-            onClick={() => nav(`/p/${eanShortcut}`)}
+            onClick={() => nav(`/p/${eanShortcut}?from=scan`)}
             className="focus-ring"
             style={{
               marginTop: 8,
@@ -152,31 +173,48 @@ export function Catalogue() {
           marginLeft: -16, marginRight: -16, padding: '0 16px',
         }}>
           <button
-            className={'chip' + (cat === null ? ' is-active' : '')}
-            onClick={() => setCat(null)}
+            className={'chip' + (cat === null && !needsReview ? ' is-active' : '')}
+            onClick={() => setFilter(null)}
             style={{ flex: '0 0 auto' }}
           >Tous</button>
           {CATEGORIES.map(c => (
             <button
               key={c}
               className={'chip' + (cat === c ? ' is-active' : '')}
-              onClick={() => setCat(cat === c ? null : c)}
+              onClick={() => setFilter(cat === c ? null : c)}
               style={{ flex: '0 0 auto' }}
             >{c}</button>
           ))}
+          <button
+            className={'chip' + (needsReview ? ' is-active' : '')}
+            onClick={toggleReview}
+            style={{ flex: '0 0 auto', borderColor: needsReview ? 'var(--warning)' : undefined }}
+          >
+            <Icon.Warn s={12} c={needsReview ? 'white' : 'var(--warning)'}/>
+            À corriger
+          </button>
         </div>
       </header>
 
       {/* List */}
       <main style={{ flex: 1, paddingBottom: 96 }}>
-        {err && (
-          <div style={{ padding: 16, color: 'var(--err)', fontSize: 13 }}>
-            {err}
+        {needsReview && (
+          <div style={{
+            margin: '12px 16px 0',
+            padding: '10px 12px',
+            borderRadius: 8,
+            background: 'var(--tint-peach)',
+            fontSize: 12, color: 'var(--warning)', lineHeight: 1.5,
+          }}>
+            Produits sans packshot — vérifier et compléter.
           </div>
+        )}
+        {err && (
+          <div style={{ padding: 16, color: 'var(--err)', fontSize: 13 }}>{err}</div>
         )}
         {!err && !loading && products.length === 0 && (
           <div style={{ padding: 32, textAlign: 'center', color: 'var(--ink-4)', fontSize: 14 }}>
-            Aucun produit trouvé
+            {needsReview ? 'Aucun produit à corriger 🎉' : 'Aucun produit trouvé'}
           </div>
         )}
         {products.map(p => (
@@ -199,6 +237,18 @@ export function Catalogue() {
           zIndex: 20,
         }}>
         <Icon.Scan s={24} c="white"/>
+        {scanCount > 0 && (
+          <div style={{
+            position: 'absolute', top: -3, right: -3,
+            minWidth: 18, height: 18, padding: '0 5px',
+            borderRadius: 99,
+            background: 'white', color: 'var(--primary)',
+            fontSize: 10, fontWeight: 700,
+            fontFamily: 'var(--font-mono)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: '2px solid var(--primary)',
+          }}>{scanCount > 99 ? '99+' : scanCount}</div>
+        )}
       </button>
     </div>
   );

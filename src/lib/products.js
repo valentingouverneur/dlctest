@@ -10,7 +10,7 @@ export async function getProductByEan(ean) {
   return data;
 }
 
-export async function searchProducts({ query = '', category = null, limit = 50 } = {}) {
+export async function searchProducts({ query = '', category = null, needsReview = false, limit = 50 } = {}) {
   let q = supabase.from('products').select('*').order('title', { ascending: true }).limit(limit);
   if (query) {
     const safe = query.replace(/[%,]/g, '');
@@ -18,6 +18,9 @@ export async function searchProducts({ query = '', category = null, limit = 50 }
   }
   if (category) {
     q = q.eq('category', category);
+  }
+  if (needsReview) {
+    q = q.is('image_url', null);
   }
   const { data, error } = await q;
   if (error) throw error;
