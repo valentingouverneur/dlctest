@@ -27,6 +27,21 @@ export async function searchProducts({ query = '', category = null, needsReview 
   return data ?? [];
 }
 
+export async function updateProduct(ean, updates) {
+  const allowed = ['title', 'brand', 'weight', 'category', 'image_url'];
+  const payload = Object.fromEntries(
+    Object.entries(updates).filter(([k]) => allowed.includes(k))
+  );
+  const { data, error } = await supabase
+    .from('products')
+    .update(payload)
+    .eq('ean', ean)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function listCategories() {
   const { data, error } = await supabase
     .from('products')

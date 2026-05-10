@@ -4,8 +4,16 @@ import { Catalogue } from './pages/Catalogue';
 import { Scanner } from './pages/Scanner';
 import { Product } from './pages/Product';
 import { NotFound } from './pages/NotFound';
+import { DesktopShell } from './pages/DesktopShell';
+import { useIsDesktop } from './hooks/useIsDesktop';
 
 export function App() {
+  const isDesktop = useIsDesktop(1024);
+
+  if (isDesktop) {
+    return <DesktopShell/>;
+  }
+
   return (
     <BrowserRouter>
       <div className="dlc-root" style={{ minHeight: '100vh' }}>
