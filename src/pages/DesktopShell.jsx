@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Packshot, CopyField, SideItem, Pill } from '../primitives';
 import { Icon } from '../icons';
 import { searchProducts, getProductByEan, updateProduct } from '../lib/products';
+import { fetchFromOFF } from '../lib/openFoodFacts';
 import { getTodayCount, getHistory } from '../lib/scanHistory';
 import { getRecentScans } from '../lib/scans';
 import { searchPackshots } from '../lib/bingImages';
@@ -502,17 +503,25 @@ export function DesktopShell() {
         setAfficheLoading(false);
       }
 
-      // Enrich with Supabase product data
-      const products = await Promise.all(eans.map(ean => getProductByEan(ean).catch(() => null)));
-      if (cancelled) return;
-      setAfficheItems(eans.map((ean, i) => products[i] || {
-        ean,
-        title: localMap[ean]?.title || ean,
-        brand: localMap[ean]?.brand || null,
-        weight: null,
-        image_url: localMap[ean]?.image_url || null,
-        category: localMap[ean]?.category || null,
+      // Enrich with Supabase then OFF fallback
+      const products = await Promise.all(eans.map(async ean => {
+        const p = await getProductByEan(ean).catch(() => null);
+        if (p) return p;
+        // Not in catalogue — try OFF for metadata
+        const offP = await fetchFromOFF(ean).catch(() => null);
+        if (offP) return { ...offP };
+        // Last resort: localStorage cache
+        return localMap[ean] ? {
+          ean,
+          title: localMap[ean].title || ean,
+          brand: localMap[ean].brand || null,
+          weight: null,
+          image_url: null,
+          category: localMap[ean].category || null,
+        } : { ean, title: ean, brand: null, weight: null, image_url: null, category: null };
       }));
+      if (cancelled) return;
+      setAfficheItems(products);
     }
 
     loadAffiche();

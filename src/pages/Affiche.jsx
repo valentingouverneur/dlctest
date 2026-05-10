@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getHistory } from '../lib/scanHistory';
 import { getRecentScans } from '../lib/scans';
 import { getProductByEan, updateProduct } from '../lib/products';
+import { fetchFromOFF } from '../lib/openFoodFacts';
 import { searchPackshots } from '../lib/bingImages';
 import { Packshot } from '../primitives';
 import { Icon } from '../icons';
@@ -175,6 +176,9 @@ export function Affiche() {
       initial.forEach(async (entry, idx) => {
         let product = null;
         try { product = await getProductByEan(entry.ean); } catch {}
+        if (!product) {
+          try { product = await fetchFromOFF(entry.ean); } catch {}
+        }
 
         const needsFetch = !product?.image_url;
         setItems(prev => prev.map((it, i) =>
