@@ -150,6 +150,48 @@ function TableRow({ product, selected, onSelect, density = 'standard' }) {
   );
 }
 
+// ─── Affiche row (desktop) — large packshot ────────────────────────
+function AfficheTableRow({ product, selected, onSelect }) {
+  const needsFix = !product.image_url;
+  return (
+    <div
+      onClick={() => onSelect(product)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 14,
+        padding: '8px 16px', height: 80,
+        borderBottom: '0.5px solid var(--hairline)',
+        background: selected ? 'var(--tint-lavender)' : 'transparent',
+        cursor: 'pointer', userSelect: 'none',
+        transition: 'background 0.07s',
+      }}
+      onMouseEnter={e => { if (!selected) e.currentTarget.style.background = 'rgba(20,18,14,0.026)'; }}
+      onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
+    >
+      <Packshot
+        product={{ title: product.title, brand: product.brand, cat: catDisplayLabel(product.category), imageUrl: product.image_url }}
+        size={64} radius={8} hint={false}
+      />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+          <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--charcoal)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {product.title}
+          </span>
+          {needsFix && (
+            <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 3, background: 'var(--tint-peach)', color: 'var(--warning)', letterSpacing: '0.04em' }}>
+              À CORRIGER
+            </span>
+          )}
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--slate)' }}>{product.brand}</div>
+      </div>
+      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+        <Pill tone={catTone(product.category)}>{product.category || '—'}</Pill>
+        <span style={{ fontSize: 11, color: 'var(--steel)', fontFamily: 'var(--font-mono)' }}>{product.ean}</span>
+      </div>
+    </div>
+  );
+}
+
 // ─── Edit field ────────────────────────────────────────────────────
 function EditField({ label, value, onChange, mono = false, readOnly = false }) {
   return (
@@ -698,7 +740,13 @@ export function DesktopShell() {
             ) : (
               <>
                 <TableHeader/>
-                {displayItems.map(p => (
+                {displayItems.map(p => activeNav === 'affiche' ? (
+                  <AfficheTableRow
+                    key={p.ean} product={p}
+                    selected={selectedProduct?.ean === p.ean}
+                    onSelect={setSelectedProduct}
+                  />
+                ) : (
                   <TableRow
                     key={p.ean} product={p} density={density}
                     selected={selectedProduct?.ean === p.ean}
