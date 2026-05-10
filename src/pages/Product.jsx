@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { getProductByEan, createProduct } from '../lib/products';
+import { getProductByEan, createProduct, updateProduct } from '../lib/products';
 import { fetchFromOFF } from '../lib/openFoodFacts';
+import { searchPackshot } from '../lib/bingImages';
 import { addScan } from '../lib/scanHistory';
 import { Packshot, CopyField } from '../primitives';
 import { Icon } from '../icons';
@@ -17,31 +18,8 @@ function copyToClipboard(text) {
   return Promise.resolve();
 }
 
-// ─── "Not found" screen (nothing in catalogue nor OFF) ─────────────
-function NotFoundScreen({ ean, onBack, onScan }) {
-  return (
-    <div className="app-shell">
-      <Header onBack={onBack}/>
-      <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-        <div style={{ width: 64, height: 64, borderRadius: 99, background: 'var(--tint-rose)', color: 'var(--err)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-          <Icon.Warn s={28} c="var(--err)"/>
-        </div>
-        <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)' }}>EAN introuvable</div>
-        <div className="mono" style={{ fontSize: 13, color: 'var(--ink-4)', marginTop: 6, letterSpacing: '0.04em' }}>{ean}</div>
-        <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 16, lineHeight: 1.5 }}>
-          Code-barres absent du catalogue et d'Open Food Facts.
-        </div>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 24 }}>
-          <button onClick={onScan} className="btn">Re-scanner</button>
-          <button onClick={onBack} className="btn btn-primary">Retour catalogue</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── OFF result banner + save button ───────────────────────────────
-function OFFBanner({ product, onSaved, onDismiss }) {
+// ─── "Add to catalogue" banner (for OFF results) ───────────────────
+function OFFBanner({ product, imageUrl, onSaved, onDismiss }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState(null);
@@ -50,7 +28,7 @@ function OFFBanner({ product, onSaved, onDismiss }) {
     setSaving(true);
     setErr(null);
     try {
-      await createProduct(product);
+      await createProduct({ ...product, image_url: imageUrl || null });
       setSaved(true);
       onSaved?.();
     } catch (e) {
@@ -62,14 +40,7 @@ function OFFBanner({ product, onSaved, onDismiss }) {
 
   if (saved) {
     return (
-      <div style={{
-        margin: '0 16px 4px',
-        padding: '10px 14px',
-        borderRadius: 8,
-        background: 'var(--tint-mint)',
-        display: 'flex', alignItems: 'center', gap: 8,
-        fontSize: 13, color: 'var(--success)', fontWeight: 500,
-      }}>
+      <div style={{ margin: '0 16px 4px', padding: '10px 14px', borderRadius: 8, background: 'var(--tint-mint)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--success)', fontWeight: 500 }}>
         <Icon.Check s={15} c="var(--success)" w={2}/>
         Ajouté au catalogue
       </div>
@@ -77,13 +48,7 @@ function OFFBanner({ product, onSaved, onDismiss }) {
   }
 
   return (
-    <div style={{
-      margin: '0 16px 4px',
-      padding: '10px 14px',
-      borderRadius: 8,
-      background: 'var(--tint-sky)',
-      border: '0.5px solid rgba(0,117,222,0.15)',
-    }}>
+    <div style={{ margin: '0 16px 4px', padding: '10px 14px', borderRadius: 8, background: 'var(--tint-sky)', border: '0.5px solid rgba(0,117,222,0.15)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
         <div style={{ width: 16, height: 16, borderRadius: 99, background: 'var(--link-blue)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <span style={{ fontSize: 10, fontWeight: 700, color: 'white', lineHeight: 1 }}>i</span>
@@ -105,22 +70,91 @@ function OFFBanner({ product, onSaved, onDismiss }) {
   );
 }
 
-// ─── Main product page ──────────────────────────────────────────────
+// ─── Bing image suggestion banner ──────────────────────────────────
+function BingImageBanner({ imageUrl, onAccept, onDismiss }) {
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const handleAccept = async () => {
+    setSaving(true);
+    await onAccept(imageUrl);
+    setSaved(true);
+    setSaving(false);
+  };
+
+  if (saved) return null;
+
+  return (
+    <div style={{ margin: '0 16px 4px', padding: '10px 14px', borderRadius: 8, background: 'var(--tint-cream)', border: '0.5px solid var(--hairline-strong)' }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        {/* Bing image preview */}
+        <img
+          src={imageUrl}
+          alt=""
+          style={{ width: 52, height: 52, borderRadius: 6, objectFit: 'contain', background: 'white', border: '0.5px solid var(--hairline)', flexShrink: 0 }}
+          onError={e => { e.target.style.display = 'none'; }}
+        />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>
+            Packshot trouvé · Enregistrer ?
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button onClick={handleAccept} disabled={saving} className="btn btn-primary" style={{ height: 28, fontSize: 12, padding: '0 10px' }}>
+              {saving ? '…' : <><Icon.Check s={12} c="white"/> Oui</>}
+            </button>
+            <button onClick={onDismiss} className="btn" style={{ height: 28, fontSize: 12, padding: '0 10px' }}>
+              Ignorer
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Not found screen ───────────────────────────────────────────────
+function NotFoundScreen({ ean, onBack, onScan }) {
+  return (
+    <div className="app-shell">
+      <Header onBack={onBack}/>
+      <div style={{ padding: '48px 24px', textAlign: 'center' }}>
+        <div style={{ width: 64, height: 64, borderRadius: 99, background: 'var(--tint-rose)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <Icon.Warn s={28} c="var(--err)"/>
+        </div>
+        <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)' }}>EAN introuvable</div>
+        <div className="mono" style={{ fontSize: 13, color: 'var(--ink-4)', marginTop: 6, letterSpacing: '0.04em' }}>{ean}</div>
+        <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 16, lineHeight: 1.5 }}>
+          Absent du catalogue et d'Open Food Facts.
+        </div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 24 }}>
+          <button onClick={onScan} className="btn">Re-scanner</button>
+          <button onClick={onBack} className="btn btn-primary">Retour catalogue</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main ───────────────────────────────────────────────────────────
 export function Product() {
   const { ean } = useParams();
   const [searchParams] = useSearchParams();
   const fromScan = searchParams.get('from') === 'scan';
   const nav = useNavigate();
 
-  const [product, setProduct] = useState(null);      // from Supabase
-  const [offProduct, setOffProduct] = useState(null); // from OFF (fallback)
+  const [product, setProduct] = useState(null);       // from Supabase
+  const [offProduct, setOffProduct] = useState(null); // from OFF
   const [offDismissed, setOffDismissed] = useState(false);
+
+  const [bingImageUrl, setBingImageUrl] = useState(null);
+  const [bingDismissed, setBingDismissed] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [offLoading, setOffLoading] = useState(false);
   const [err, setErr] = useState(null);
   const [copiedAll, setCopiedAll] = useState(false);
 
-  // 1. Try Supabase
+  // 1. Supabase lookup
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -128,6 +162,8 @@ export function Product() {
     setProduct(null);
     setOffProduct(null);
     setOffDismissed(false);
+    setBingImageUrl(null);
+    setBingDismissed(false);
 
     getProductByEan(ean)
       .then(p => {
@@ -136,7 +172,7 @@ export function Product() {
           setProduct(p);
           if (fromScan) addScan(p);
         } else {
-          // 2. Not in Supabase — try OFF
+          // 2. Not in Supabase — try OFF for metadata
           setOffLoading(true);
           fetchFromOFF(ean)
             .then(offP => {
@@ -144,7 +180,7 @@ export function Product() {
               setOffProduct(offP);
               if (offP && fromScan) addScan({ ...offP });
             })
-            .catch(() => {}) // OFF failure is silent
+            .catch(() => {})
             .finally(() => { if (!cancelled) setOffLoading(false); });
         }
       })
@@ -153,6 +189,18 @@ export function Product() {
 
     return () => { cancelled = true; };
   }, [ean]);
+
+  // 2. Bing image search — when product has no image_url
+  useEffect(() => {
+    const p = product || offProduct;
+    if (!p || p.image_url || bingImageUrl || bingDismissed) return;
+
+    let cancelled = false;
+    searchPackshot(p.title, p.brand)
+      .then(url => { if (!cancelled && url) setBingImageUrl(url); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [product, offProduct]);
 
   const handleCopyAll = async (p) => {
     const parts = [p.title, p.brand, p.weight, p.ean].filter(Boolean);
@@ -163,7 +211,22 @@ export function Product() {
 
   const handleCopyField = async (_, value) => { if (value) await copyToClipboard(value); };
 
-  // Loading
+  // Accept Bing image — save to Supabase
+  const acceptBingImage = async (url) => {
+    setBingImageUrl(url);
+    setBingDismissed(true); // hide banner
+    const p = product || offProduct;
+    if (!p) return;
+    try {
+      if (product) {
+        const updated = await updateProduct(product.ean, { image_url: url });
+        setProduct(updated);
+      }
+      // For OFF products, will be saved when "Ajouter au catalogue" is clicked
+    } catch {}
+  };
+
+  // Loading states
   if (loading) {
     return (
       <div className="app-shell">
@@ -172,7 +235,6 @@ export function Product() {
       </div>
     );
   }
-
   if (err) {
     return (
       <div className="app-shell">
@@ -182,7 +244,7 @@ export function Product() {
     );
   }
 
-  // Nothing in Supabase — show OFF result or not-found
+  // No Supabase product
   if (!product) {
     if (offLoading) {
       return (
@@ -195,28 +257,26 @@ export function Product() {
         </div>
       );
     }
-
     if (!offProduct) {
-      return (
-        <NotFoundScreen ean={ean} onBack={() => nav('/')} onScan={() => nav('/scan')}/>
-      );
+      return <NotFoundScreen ean={ean} onBack={() => nav('/')} onScan={() => nav('/scan')}/>;
     }
-
-    // Show OFF product with save banner
+    // Show OFF product
     return (
       <ProductSheet
         product={offProduct}
+        resolvedImageUrl={bingImageUrl || offProduct.image_url}
         fromOFF={!offDismissed}
+        bingImageUrl={!bingDismissed && bingImageUrl && !offProduct.image_url ? bingImageUrl : null}
         copiedAll={copiedAll}
         onCopyAll={() => handleCopyAll(offProduct)}
         onCopyField={handleCopyField}
         onBack={() => nav(-1)}
         onScan={() => nav('/scan')}
-        onOFFSaved={() => {
-          // After saving, reload from Supabase
-          getProductByEan(ean).then(p => { if (p) setProduct(p); });
-        }}
+        onOFFSaved={() => getProductByEan(ean).then(p => { if (p) setProduct(p); })}
         onOFFDismiss={() => setOffDismissed(true)}
+        onBingAccept={acceptBingImage}
+        onBingDismiss={() => setBingDismissed(true)}
+        offProductForSave={{ ...offProduct, image_url: bingImageUrl || null }}
       />
     );
   }
@@ -225,17 +285,30 @@ export function Product() {
   return (
     <ProductSheet
       product={product}
+      resolvedImageUrl={bingImageUrl || product.image_url}
+      bingImageUrl={!bingDismissed && bingImageUrl && !product.image_url ? bingImageUrl : null}
       copiedAll={copiedAll}
       onCopyAll={() => handleCopyAll(product)}
       onCopyField={handleCopyField}
       onBack={() => nav(-1)}
       onScan={() => nav('/scan')}
+      onBingAccept={acceptBingImage}
+      onBingDismiss={() => setBingDismissed(true)}
     />
   );
 }
 
-// ─── Shared sheet ───────────────────────────────────────────────────
-function ProductSheet({ product, fromOFF = false, copiedAll, onCopyAll, onCopyField, onBack, onScan, onOFFSaved, onOFFDismiss }) {
+// ─── Shared product sheet ───────────────────────────────────────────
+function ProductSheet({
+  product, resolvedImageUrl,
+  fromOFF = false, offProductForSave,
+  bingImageUrl,
+  copiedAll,
+  onCopyAll, onCopyField,
+  onBack, onScan,
+  onOFFSaved, onOFFDismiss,
+  onBingAccept, onBingDismiss,
+}) {
   const catLabel = product.category === 'Glaces' ? 'Surgelés' : product.category;
 
   return (
@@ -244,7 +317,10 @@ function ProductSheet({ product, fromOFF = false, copiedAll, onCopyAll, onCopyFi
 
       {/* Packshot + title */}
       <div style={{ padding: '20px 16px 16px', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-        <Packshot product={{ title: product.title, brand: product.brand, cat: catLabel, imageUrl: product.image_url }} size={88} radius={10} hint={false}/>
+        <Packshot
+          product={{ title: product.title, brand: product.brand, cat: catLabel, imageUrl: resolvedImageUrl }}
+          size={88} radius={10} hint={false}
+        />
         <div style={{ flex: 1, minWidth: 0, paddingTop: 4 }}>
           <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 }}>{product.title}</div>
           <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 4 }}>{product.brand}</div>
@@ -258,24 +334,35 @@ function ProductSheet({ product, fromOFF = false, copiedAll, onCopyAll, onCopyFi
         </div>
       </div>
 
+      {/* Bing image suggestion */}
+      {bingImageUrl && (
+        <BingImageBanner
+          imageUrl={bingImageUrl}
+          onAccept={onBingAccept}
+          onDismiss={onBingDismiss}
+        />
+      )}
+
       {/* OFF banner */}
       {fromOFF && (
-        <OFFBanner product={product} onSaved={onOFFSaved} onDismiss={onOFFDismiss}/>
+        <OFFBanner
+          product={offProductForSave || product}
+          imageUrl={resolvedImageUrl}
+          onSaved={onOFFSaved}
+          onDismiss={onOFFDismiss}
+        />
       )}
 
       {/* Copy all */}
       <div style={{ padding: '8px 16px 4px' }}>
-        <button
-          onClick={onCopyAll}
-          className="focus-ring"
-          style={{
-            width: '100%', height: 44,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            background: copiedAll ? 'var(--ink)' : 'var(--primary)',
-            color: 'white', border: 'none', borderRadius: 8,
-            fontFamily: 'inherit', fontSize: 14, fontWeight: 500, cursor: 'pointer',
-            transition: 'background-color .15s',
-          }}>
+        <button onClick={onCopyAll} className="focus-ring" style={{
+          width: '100%', height: 44,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          background: copiedAll ? 'var(--ink)' : 'var(--primary)',
+          color: 'white', border: 'none', borderRadius: 8,
+          fontFamily: 'inherit', fontSize: 14, fontWeight: 500, cursor: 'pointer',
+          transition: 'background-color .15s',
+        }}>
           {copiedAll ? <><Icon.Check s={16} c="white"/> Copié</> : <><Icon.Copy s={16} c="white"/> Copier tout (Factory)</>}
         </button>
         <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 6, textAlign: 'center' }}>

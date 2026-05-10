@@ -32,7 +32,7 @@ export async function fetchFromOFF(ean) {
     title,
     brand: p.brands ? p.brands.split(',')[0].trim() : null,
     weight: p.quantity || null,
-    image_url: p.image_front_url || p.image_url || null,
+    image_url: null, // images sourced from Bing, not OFF
     category: mapCategory(p.categories_tags),
     source: 'openfoodfacts',
   };
