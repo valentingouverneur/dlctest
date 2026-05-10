@@ -68,13 +68,13 @@ function PackshotModal({ packshots, currentUrl, saving, onSelect, onClose }) {
   );
 }
 
-function AfficheRow({ entry, onImageClick }) {
+function AfficheRow({ entry, onImageClick, onRowClick }) {
   const product = entry.product;
   const resolvedImage = product?.image_url || entry.packshots?.[0] || null;
   const title = product?.title || entry.title || entry.ean;
   const brand = product?.brand || entry.brand || null;
   const category = product?.category || entry.category || null;
-  const isClickable = !!(product || entry.packshots?.length > 0);
+  const isImageClickable = !!(product || entry.packshots?.length > 0);
 
   return (
     <div style={{
@@ -82,12 +82,13 @@ function AfficheRow({ entry, onImageClick }) {
       padding: '10px 16px',
       borderBottom: '0.5px solid var(--line)',
     }}>
+      {/* Thumbnail — opens packshot picker */}
       <button
-        onClick={() => isClickable && onImageClick(entry)}
+        onClick={() => isImageClickable && onImageClick(entry)}
         disabled={entry.loadingPackshots}
         style={{
           width: 44, height: 44, flexShrink: 0, padding: 0,
-          border: 'none', background: 'transparent', cursor: isClickable ? 'pointer' : 'default',
+          border: 'none', background: 'transparent', cursor: isImageClickable ? 'pointer' : 'default',
           borderRadius: 6, overflow: 'hidden',
         }}
       >
@@ -106,34 +107,38 @@ function AfficheRow({ entry, onImageClick }) {
         )}
       </button>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{
-          fontSize: 14, fontWeight: 500, color: 'var(--ink)',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          lineHeight: 1.3,
-        }}>
-          {title}
+      {/* Main content — navigates to product sheet */}
+      <button
+        onClick={() => onRowClick(entry.ean)}
+        style={{
+          flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8,
+          border: 'none', background: 'transparent', cursor: 'pointer',
+          padding: 0, textAlign: 'left',
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: 14, fontWeight: 500, color: 'var(--ink)',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            lineHeight: 1.3,
+          }}>
+            {title}
+          </div>
+          {brand && (
+            <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>{brand}</div>
+          )}
         </div>
-        {brand && (
-          <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>{brand}</div>
+        {category && (
+          <span style={{
+            fontSize: 11, color: 'var(--primary)',
+            background: 'var(--tint-lavender)',
+            borderRadius: 99, padding: '3px 8px', whiteSpace: 'nowrap', flexShrink: 0,
+          }}>
+            {category}
+          </span>
         )}
-      </div>
-
-      {category && (
-        <span style={{
-          fontSize: 11, color: 'var(--primary)',
-          background: 'var(--tint-lavender)',
-          borderRadius: 99, padding: '3px 8px', whiteSpace: 'nowrap', flexShrink: 0,
-        }}>
-          {category}
-        </span>
-      )}
-
-      {isClickable && (
-        <div style={{ color: 'var(--ink-5)', flexShrink: 0 }}>
-          <Icon.ChevronRight s={14}/>
-        </div>
-      )}
+        <Icon.ChevronRight s={14} c="var(--ink-5)"/>
+      </button>
     </div>
   );
 }
@@ -283,6 +288,7 @@ export function Affiche() {
               key={entry.ean}
               entry={entry}
               onImageClick={handleImageClick}
+              onRowClick={(ean) => nav(`/p/${ean}`)}
             />
           ))
         )}
