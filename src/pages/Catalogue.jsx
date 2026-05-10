@@ -111,24 +111,6 @@ export function Catalogue() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 4, marginBottom: -1 }}>
-          <button onClick={() => nav('/')} style={{
-            border: 'none', background: 'none', padding: '0 4px 10px',
-            fontSize: 14, fontWeight: 400, color: 'var(--ink-4)',
-            borderBottom: '2px solid transparent', cursor: 'pointer',
-            fontFamily: 'var(--font-sans)',
-          }}>
-            Affiche
-          </button>
-          <button style={{
-            border: 'none', background: 'none', padding: '0 4px 10px', marginLeft: 12,
-            fontSize: 14, fontWeight: 600, color: 'var(--primary)',
-            borderBottom: '2px solid var(--primary)', cursor: 'pointer',
-            fontFamily: 'var(--font-sans)',
-          }}>
-            Catalogue
-          </button>
-        </div>
 
         {/* Search */}
         <div style={{ position: 'relative' }}>
@@ -216,7 +198,7 @@ export function Catalogue() {
       </header>
 
       {/* List */}
-      <main style={{ flex: 1, paddingBottom: 96 }}>
+      <main style={{ flex: 1, paddingBottom: 80 }}>
         {needsReview && (
           <div style={{
             margin: '12px 16px 0',
@@ -241,34 +223,6 @@ export function Catalogue() {
         ))}
       </main>
 
-      {/* Floating scan button */}
-      <button
-        onClick={() => nav('/scan')}
-        aria-label="Scanner"
-        className="focus-ring"
-        style={{
-          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-          width: 56, height: 56, borderRadius: 99,
-          background: 'var(--primary)', color: 'white',
-          border: 'none', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: 'var(--sh-3)',
-          zIndex: 20,
-        }}>
-        <Icon.Scan s={24} c="white"/>
-        {scanCount > 0 && (
-          <div style={{
-            position: 'absolute', top: -3, right: -3,
-            minWidth: 18, height: 18, padding: '0 5px',
-            borderRadius: 99,
-            background: 'white', color: 'var(--primary)',
-            fontSize: 10, fontWeight: 700,
-            fontFamily: 'var(--font-mono)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            border: '2px solid var(--primary)',
-          }}>{scanCount > 99 ? '99+' : scanCount}</div>
-        )}
-      </button>
     </div>
   );
 }

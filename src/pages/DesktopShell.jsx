@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Packshot, CopyField, SideItem, Pill } from '../primitives';
 import { Icon } from '../icons';
 import { searchProducts, getProductByEan, updateProduct } from '../lib/products';
-import { getTodayCount } from '../lib/scanHistory';
+import { getTodayCount, getHistory } from '../lib/scanHistory';
+import { searchPackshots } from '../lib/bingImages';
 
 const CATEGORIES = ['Glaces', 'Viande', 'Poisson', 'Légumes', 'Pizza', 'Plats cuisinés', 'Frites', 'Entrée'];
 const GRID = '32px 1.8fr 1fr 88px 148px 118px';
@@ -52,6 +53,7 @@ function DesktopSidebar({ activeNav, onNav, scanCount }) {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <SideItem icon={<Icon.Image s={16}/>} label="Affiche" active={activeNav === 'affiche'} onClick={() => onNav('affiche')}/>
         <SideItem icon={<Icon.Catalog s={16}/>} label="Catalogue" active={activeNav === 'catalogue'} onClick={() => onNav('catalogue')}/>
         <SideItem icon={<Icon.Calendar s={16}/>} label="Calendrier DLC" active={activeNav === 'dlc'} onClick={() => onNav('dlc')}/>
         <SideItem icon={<Icon.Settings s={16}/>} label="Paramètres" active={activeNav === 'settings'} onClick={() => onNav('settings')}/>
@@ -172,10 +174,15 @@ function DetailPanel({ product, onUpdate, onClose }) {
   const [saveErr, setSaveErr] = useState(null);
   const [copiedAll, setCopiedAll] = useState(false);
 
+  // Packshot picker
+  const [pickerPackshots, setPickerPackshots] = useState([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
+
   useEffect(() => {
     setEditing(false);
     setEditData(null);
     setSaveErr(null);
+    setPickerPackshots([]);
   }, [product?.ean]);
 
   const startEdit = () => {
@@ -209,6 +216,22 @@ function DetailPanel({ product, onUpdate, onClose }) {
   };
 
   const handleCopyField = async (_, value) => { if (value) await copyToClipboard(value); };
+
+  const handleOpenPicker = async () => {
+    setPickerLoading(true);
+    setPickerPackshots([]);
+    const packshots = await searchPackshots(product.title, product.brand).catch(() => []);
+    setPickerPackshots(packshots);
+    setPickerLoading(false);
+  };
+
+  const handlePickPackshot = async (url) => {
+    try {
+      const updated = await updateProduct(product.ean, { image_url: url });
+      onUpdate(updated);
+      setPickerPackshots([]);
+    } catch {}
+  };
 
   // Empty state
   if (!product) {
@@ -284,13 +307,44 @@ function DetailPanel({ product, onUpdate, onClose }) {
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {/* Packshot */}
         <div style={{
-          padding: 24, display: 'flex', justifyContent: 'center',
+          padding: '20px 24px 14px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
           background: 'var(--canvas)', borderBottom: '0.5px solid var(--hairline)',
         }}>
           <Packshot
             product={{ title: product.title, brand: product.brand, cat: catDisplayLabel(product.category), imageUrl: product.image_url }}
             size={120} radius={12}
           />
+          <button
+            onClick={handleOpenPicker}
+            disabled={pickerLoading}
+            className="btn btn-ghost"
+            style={{ height: 26, fontSize: 12 }}
+          >
+            <Icon.Image s={12}/> {pickerLoading ? '…' : 'Changer l\'image'}
+          </button>
+
+          {/* Inline packshot picker */}
+          {pickerPackshots.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, width: '100%' }}>
+              {pickerPackshots.map((url, i) => (
+                <button
+                  key={i}
+                  onClick={() => handlePickPackshot(url)}
+                  style={{
+                    border: url === product.image_url ? '2.5px solid var(--primary)' : '1.5px solid var(--hairline-strong)',
+                    borderRadius: 8, overflow: 'hidden', padding: 0, cursor: 'pointer',
+                    aspectRatio: '1', background: '#fff',
+                  }}
+                >
+                  <img
+                    src={url} alt=""
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    onError={e => { e.currentTarget.style.opacity = '0.3'; }}
+                  />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Title + category */}
@@ -369,13 +423,21 @@ function DetailPanel({ product, onUpdate, onClose }) {
 
 // ─── Main desktop shell ────────────────────────────────────────────
 export function DesktopShell() {
-  const [activeNav, setActiveNav] = useState('catalogue');
+  const [activeNav, setActiveNav] = useState('affiche');
+
+  // Catalogue state
   const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [catalogueLoading, setCatalogueLoading] = useState(false);
   const [err, setErr] = useState(null);
   const [q, setQ] = useState('');
   const [cat, setCat] = useState(null);
   const [needsReview, setNeedsReview] = useState(false);
+
+  // Affiche state
+  const [afficheItems, setAfficheItems] = useState([]);
+  const [afficheLoading, setAfficheLoading] = useState(false);
+
+  // Shared
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [pasteEan, setPasteEan] = useState('');
   const [density, setDensity] = useState('standard');
@@ -383,10 +445,12 @@ export function DesktopShell() {
 
   useEffect(() => { setScanCount(getTodayCount()); }, []);
 
+  // Load catalogue products
   useEffect(() => {
+    if (activeNav !== 'catalogue') return;
     let cancelled = false;
     const t = setTimeout(async () => {
-      setLoading(true);
+      setCatalogueLoading(true);
       setErr(null);
       try {
         const data = await searchProducts({ query: q.trim(), category: cat, needsReview, limit: 300 });
@@ -394,18 +458,72 @@ export function DesktopShell() {
       } catch (e) {
         if (!cancelled) setErr(e.message || 'Erreur');
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setCatalogueLoading(false);
       }
     }, q ? 200 : 0);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [q, cat, needsReview]);
+  }, [q, cat, needsReview, activeNav]);
+
+  // Load affiche items from localStorage + Supabase
+  useEffect(() => {
+    if (activeNav !== 'affiche') return;
+    let cancelled = false;
+    setAfficheLoading(true);
+
+    const history = getHistory();
+    const seen = new Set();
+    const deduped = history.filter(h => {
+      if (seen.has(h.ean)) return false;
+      seen.add(h.ean);
+      return true;
+    });
+
+    // Show localStorage data immediately
+    const initial = deduped.map(h => ({
+      ean: h.ean,
+      title: h.title || h.ean,
+      brand: h.brand || null,
+      weight: null,
+      image_url: h.image_url || null,
+      category: h.category || null,
+    }));
+    if (!cancelled) {
+      setAfficheItems(initial);
+      setAfficheLoading(false);
+    }
+
+    // Enrich with Supabase data
+    Promise.all(deduped.map(h => getProductByEan(h.ean).catch(() => null)))
+      .then(supabaseProducts => {
+        if (cancelled) return;
+        setAfficheItems(deduped.map((h, i) => {
+          const sp = supabaseProducts[i];
+          return sp || {
+            ean: h.ean,
+            title: h.title || h.ean,
+            brand: h.brand || null,
+            weight: null,
+            image_url: h.image_url || null,
+            category: h.category || null,
+          };
+        }));
+      });
+
+    return () => { cancelled = true; };
+  }, [activeNav]);
+
+  const handleNav = (nav) => {
+    setActiveNav(nav);
+    setSelectedProduct(null);
+  };
 
   const submitPaste = async (e) => {
     e.preventDefault();
     if (pasteEan.length < 8) return;
     const ean = pasteEan;
     setPasteEan('');
-    const found = products.find(p => p.ean === ean);
+    const list = activeNav === 'affiche' ? afficheItems : products;
+    const found = list.find(p => p.ean === ean);
     if (found) { setSelectedProduct(found); return; }
     try {
       const product = await getProductByEan(ean);
@@ -417,6 +535,7 @@ export function DesktopShell() {
 
   const handleUpdate = (updated) => {
     setProducts(prev => prev.map(p => p.ean === updated.ean ? updated : p));
+    setAfficheItems(prev => prev.map(p => p.ean === updated.ean ? updated : p));
     setSelectedProduct(updated);
   };
 
@@ -424,9 +543,12 @@ export function DesktopShell() {
   const toggleReview = () => { setNeedsReview(r => !r); setCat(null); };
   const fixCount = products.filter(p => !p.image_url).length;
 
+  const displayItems = activeNav === 'affiche' ? afficheItems : products;
+  const displayLoading = activeNav === 'affiche' ? afficheLoading : catalogueLoading;
+
   return (
     <div className="dlc-root" style={{ height: '100vh', display: 'flex', overflow: 'hidden' }}>
-      <DesktopSidebar activeNav={activeNav} onNav={setActiveNav} scanCount={scanCount}/>
+      <DesktopSidebar activeNav={activeNav} onNav={handleNav} scanCount={scanCount}/>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
 
@@ -437,9 +559,11 @@ export function DesktopShell() {
           borderBottom: '0.5px solid var(--hairline)',
           background: 'var(--canvas)', flexShrink: 0,
         }}>
-          <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink)' }}>Catalogue</div>
+          <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink)' }}>
+            {activeNav === 'affiche' ? 'Affiche' : 'Catalogue'}
+          </div>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--steel)', padding: '2px 7px', background: 'var(--surface)', borderRadius: 4 }}>
-            {loading ? '…' : products.length}
+            {displayLoading ? '…' : displayItems.length}
           </span>
 
           {/* EAN paste */}
@@ -486,60 +610,62 @@ export function DesktopShell() {
             ))}
           </div>
 
-          {/* Search */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            height: 30, padding: '0 10px',
-            background: 'var(--surface)', border: '0.5px solid var(--hairline-strong)',
-            borderRadius: 6, width: 260,
-          }}>
-            <Icon.Search s={14} c="var(--stone)"/>
-            <input
-              value={q}
-              onChange={e => setQ(e.target.value)}
-              placeholder="Recherche…"
-              style={{
-                flex: 1, border: 'none', background: 'transparent', outline: 'none',
-                fontFamily: 'inherit', fontSize: 12.5, color: 'var(--charcoal)',
-              }}
-            />
-            {q && (
-              <button onClick={() => setQ('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--stone)', padding: 0, display: 'flex' }}>
-                <Icon.Close s={12}/>
-              </button>
-            )}
-          </div>
+          {/* Search — catalogue only */}
+          {activeNav === 'catalogue' && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              height: 30, padding: '0 10px',
+              background: 'var(--surface)', border: '0.5px solid var(--hairline-strong)',
+              borderRadius: 6, width: 260,
+            }}>
+              <Icon.Search s={14} c="var(--stone)"/>
+              <input
+                value={q}
+                onChange={e => setQ(e.target.value)}
+                placeholder="Recherche…"
+                style={{
+                  flex: 1, border: 'none', background: 'transparent', outline: 'none',
+                  fontFamily: 'inherit', fontSize: 12.5, color: 'var(--charcoal)',
+                }}
+              />
+              {q && (
+                <button onClick={() => setQ('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--stone)', padding: 0, display: 'flex' }}>
+                  <Icon.Close s={12}/>
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* ── Category chips ── */}
-        <div className="no-sb" style={{
-          display: 'flex', gap: 6, padding: '8px 16px',
-          borderBottom: '0.5px solid var(--hairline)',
-          background: 'var(--canvas)', flexShrink: 0, overflowX: 'auto',
-          alignItems: 'center',
-        }}>
-          <button className={'chip' + (cat === null && !needsReview ? ' is-active' : '')} onClick={() => setFilter(null)}>
-            Tous
-          </button>
-          {CATEGORIES.map(c => (
-            <button key={c} className={'chip' + (cat === c && !needsReview ? ' is-active' : '')} onClick={() => setFilter(cat === c ? null : c)}>
-              {c}
-            </button>
-          ))}
-          {fixCount > 0 && (
-            <button onClick={toggleReview}
-              className={'chip' + (needsReview ? ' is-active' : '')}
-              style={needsReview ? {} : { color: 'var(--warning)', borderColor: 'oklch(0.84 0.08 70)' }}>
-              <Icon.Warn s={11} c={needsReview ? 'white' : 'var(--warning)'}/>
-              À corriger
-              <span style={{ fontFamily: 'var(--font-mono)', opacity: 0.7, marginLeft: 2 }}>{fixCount}</span>
-            </button>
-          )}
-          <div style={{ flex: 1 }}/>
-          <span style={{ fontSize: 11, color: 'var(--steel)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
-            {loading ? '…' : `${products.length} résultats`}
-          </span>
-        </div>
+        {/* ── Category chips — catalogue only ── */}
+        {activeNav === 'catalogue' && (
+          <div className="no-sb" style={{
+            display: 'flex', gap: 6, padding: '8px 16px',
+            borderBottom: '0.5px solid var(--hairline)',
+            background: 'var(--canvas)', flexShrink: 0, overflowX: 'auto',
+            alignItems: 'center',
+          }}>
+            <button className={'chip' + (cat === null && !needsReview ? ' is-active' : '')} onClick={() => setFilter(null)}>Tous</button>
+            {CATEGORIES.map(c => (
+              <button key={c} className={'chip' + (cat === c && !needsReview ? ' is-active' : '')} onClick={() => setFilter(cat === c ? null : c)}>
+                {c}
+              </button>
+            ))}
+            {fixCount > 0 && (
+              <button onClick={toggleReview}
+                className={'chip' + (needsReview ? ' is-active' : '')}
+                style={needsReview ? {} : { color: 'var(--warning)', borderColor: 'oklch(0.84 0.08 70)' }}>
+                <Icon.Warn s={11} c={needsReview ? 'white' : 'var(--warning)'}/>
+                À corriger
+                <span style={{ fontFamily: 'var(--font-mono)', opacity: 0.7, marginLeft: 2 }}>{fixCount}</span>
+              </button>
+            )}
+            <div style={{ flex: 1 }}/>
+            <span style={{ fontSize: 11, color: 'var(--steel)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
+              {displayLoading ? '…' : `${products.length} résultats`}
+            </span>
+          </div>
+        )}
 
         {/* ── Body: table + detail panel ── */}
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
@@ -551,16 +677,18 @@ export function DesktopShell() {
             ) : (
               <>
                 <TableHeader/>
-                {products.map(p => (
+                {displayItems.map(p => (
                   <TableRow
                     key={p.ean} product={p} density={density}
                     selected={selectedProduct?.ean === p.ean}
                     onSelect={setSelectedProduct}
                   />
                 ))}
-                {!loading && products.length === 0 && (
+                {!displayLoading && displayItems.length === 0 && (
                   <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--steel)', fontSize: 13 }}>
-                    {needsReview ? 'Aucun produit à corriger 🎉' : 'Aucun produit trouvé'}
+                    {activeNav === 'affiche'
+                      ? 'Aucun scan enregistré. Scannez des produits depuis l\'app mobile.'
+                      : needsReview ? 'Aucun produit à corriger 🎉' : 'Aucun produit trouvé'}
                   </div>
                 )}
                 <div style={{ height: 32 }}/>
@@ -568,7 +696,7 @@ export function DesktopShell() {
             )}
           </div>
 
-          {/* Detail panel — always rendered so it handles its own empty/not-found states */}
+          {/* Detail panel */}
           <DetailPanel
             product={selectedProduct}
             onUpdate={handleUpdate}
