@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getHistory } from '../lib/scanHistory';
+import { getRecentScans } from '../lib/scans';
 import { getProductByEan, updateProduct } from '../lib/products';
 import { searchPackshots } from '../lib/bingImages';
 import { Packshot } from '../primitives';
@@ -143,51 +144,60 @@ export function Affiche() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const history = getHistory();
-    const seen = new Set();
-    const deduped = history.filter(h => {
-      if (seen.has(h.ean)) return false;
-      seen.add(h.ean);
-      return true;
-    });
-
-    const initial = deduped.map(h => ({
-      ean: h.ean,
-      title: h.title || null,
-      brand: h.brand || null,
-      category: h.category || null,
-      product: null,
-      packshots: [],
-      loadingPackshots: false,
-    }));
-    setItems(initial);
-
-    initial.forEach(async (entry, idx) => {
-      let product = null;
-      try {
-        product = await getProductByEan(entry.ean);
-      } catch {}
-
-      const needsFetch = !product?.image_url;
-      setItems(prev => prev.map((it, i) =>
-        i === idx ? { ...it, product, loadingPackshots: needsFetch && !!(product?.title || entry.title) } : it
-      ));
-
-      if (needsFetch) {
-        const titleForSearch = product?.title || entry.title;
-        const brandForSearch = product?.brand || entry.brand;
-        if (titleForSearch) {
-          const packshots = await searchPackshots(titleForSearch, brandForSearch).catch(() => []);
-          setItems(prev => prev.map((it, i) =>
-            i === idx ? { ...it, packshots, loadingPackshots: false } : it
-          ));
-        } else {
-          setItems(prev => prev.map((it, i) =>
-            i === idx ? { ...it, loadingPackshots: false } : it
-          ));
-        }
+    async function load() {
+      // Try Supabase scans table first, fall back to localStorage
+      let rawList;
+      const supaScans = await getRecentScans(20);
+      if (supaScans !== null && supaScans.length > 0) {
+        rawList = supaScans;
+      } else {
+        const seen = new Set();
+        rawList = getHistory().filter(h => {
+          if (seen.has(h.ean)) return false;
+          seen.add(h.ean);
+          return true;
+        });
       }
-    });
+
+      // Use localStorage cache for title/brand while Supabase loads
+      const localMap = Object.fromEntries(getHistory().map(h => [h.ean, h]));
+      const initial = rawList.map(h => ({
+        ean: h.ean,
+        title: localMap[h.ean]?.title || null,
+        brand: localMap[h.ean]?.brand || null,
+        category: localMap[h.ean]?.category || null,
+        product: null,
+        packshots: [],
+        loadingPackshots: false,
+      }));
+      setItems(initial);
+
+      initial.forEach(async (entry, idx) => {
+        let product = null;
+        try { product = await getProductByEan(entry.ean); } catch {}
+
+        const needsFetch = !product?.image_url;
+        setItems(prev => prev.map((it, i) =>
+          i === idx ? { ...it, product, loadingPackshots: needsFetch && !!(product?.title || entry.title) } : it
+        ));
+
+        if (needsFetch) {
+          const titleForSearch = product?.title || entry.title;
+          const brandForSearch = product?.brand || entry.brand;
+          if (titleForSearch) {
+            const packshots = await searchPackshots(titleForSearch, brandForSearch).catch(() => []);
+            setItems(prev => prev.map((it, i) =>
+              i === idx ? { ...it, packshots, loadingPackshots: false } : it
+            ));
+          } else {
+            setItems(prev => prev.map((it, i) =>
+              i === idx ? { ...it, loadingPackshots: false } : it
+            ));
+          }
+        }
+      });
+    }
+    load();
   }, []);
 
   async function handleImageClick(entry) {

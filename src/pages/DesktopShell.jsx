@@ -3,6 +3,7 @@ import { Packshot, CopyField, SideItem, Pill } from '../primitives';
 import { Icon } from '../icons';
 import { searchProducts, getProductByEan, updateProduct } from '../lib/products';
 import { getTodayCount, getHistory } from '../lib/scanHistory';
+import { getRecentScans } from '../lib/scans';
 import { searchPackshots } from '../lib/bingImages';
 
 const CATEGORIES = ['Glaces', 'Viande', 'Poisson', 'Légumes', 'Pizza', 'Plats cuisinés', 'Frites', 'Entrée'];
@@ -464,51 +465,57 @@ export function DesktopShell() {
     return () => { cancelled = true; clearTimeout(t); };
   }, [q, cat, needsReview, activeNav]);
 
-  // Load affiche items from localStorage + Supabase
+  // Load affiche items from Supabase scans table (fallback: localStorage)
   useEffect(() => {
     if (activeNav !== 'affiche') return;
     let cancelled = false;
     setAfficheLoading(true);
 
-    const history = getHistory();
-    const seen = new Set();
-    const deduped = history.filter(h => {
-      if (seen.has(h.ean)) return false;
-      seen.add(h.ean);
-      return true;
-    });
+    async function loadAffiche() {
+      // Get scan list
+      let eans;
+      const supaScans = await getRecentScans(20);
+      if (supaScans !== null && supaScans.length > 0) {
+        eans = supaScans.map(s => s.ean);
+      } else {
+        const seen = new Set();
+        const localMap = getHistory().filter(h => {
+          if (seen.has(h.ean)) return false;
+          seen.add(h.ean);
+          return true;
+        });
+        eans = localMap.map(h => h.ean);
+      }
 
-    // Show localStorage data immediately
-    const initial = deduped.map(h => ({
-      ean: h.ean,
-      title: h.title || h.ean,
-      brand: h.brand || null,
-      weight: null,
-      image_url: h.image_url || null,
-      category: h.category || null,
-    }));
-    if (!cancelled) {
-      setAfficheItems(initial);
-      setAfficheLoading(false);
+      const localMap = Object.fromEntries(getHistory().map(h => [h.ean, h]));
+
+      // Show placeholder rows immediately
+      if (!cancelled) {
+        setAfficheItems(eans.map(ean => ({
+          ean,
+          title: localMap[ean]?.title || ean,
+          brand: localMap[ean]?.brand || null,
+          weight: null,
+          image_url: localMap[ean]?.image_url || null,
+          category: localMap[ean]?.category || null,
+        })));
+        setAfficheLoading(false);
+      }
+
+      // Enrich with Supabase product data
+      const products = await Promise.all(eans.map(ean => getProductByEan(ean).catch(() => null)));
+      if (cancelled) return;
+      setAfficheItems(eans.map((ean, i) => products[i] || {
+        ean,
+        title: localMap[ean]?.title || ean,
+        brand: localMap[ean]?.brand || null,
+        weight: null,
+        image_url: localMap[ean]?.image_url || null,
+        category: localMap[ean]?.category || null,
+      }));
     }
 
-    // Enrich with Supabase data
-    Promise.all(deduped.map(h => getProductByEan(h.ean).catch(() => null)))
-      .then(supabaseProducts => {
-        if (cancelled) return;
-        setAfficheItems(deduped.map((h, i) => {
-          const sp = supabaseProducts[i];
-          return sp || {
-            ean: h.ean,
-            title: h.title || h.ean,
-            brand: h.brand || null,
-            weight: null,
-            image_url: h.image_url || null,
-            category: h.category || null,
-          };
-        }));
-      });
-
+    loadAffiche();
     return () => { cancelled = true; };
   }, [activeNav]);
 

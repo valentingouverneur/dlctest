@@ -4,6 +4,7 @@ import { Icon } from '../icons';
 import { Packshot } from '../primitives';
 import { addScan, addEanScan, getRecentWithData, getTodayCount } from '../lib/scanHistory';
 import { getProductByEan } from '../lib/products';
+import { insertScan } from '../lib/scans';
 
 const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'];
 
@@ -131,6 +132,7 @@ export function Scanner() {
       let title = ean;
       try {
         const product = await getProductByEan(ean);
+        insertScan(ean); // fire-and-forget to Supabase
         if (product && mountedRef.current) {
           addScan(product);
           title = product.title;
@@ -152,6 +154,7 @@ export function Scanner() {
     } else {
       setLastDetected(ean);
       addEanScan(ean);
+      insertScan(ean); // fire-and-forget to Supabase
       setTimeout(() => nav(`/p/${ean}?from=scan`), 320);
     }
   }
