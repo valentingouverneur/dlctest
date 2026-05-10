@@ -111,6 +111,25 @@ export function Catalogue() {
           </div>
         </div>
 
+        <div style={{ display: 'flex', gap: 4, marginBottom: -1 }}>
+          <button onClick={() => nav('/')} style={{
+            border: 'none', background: 'none', padding: '0 4px 10px',
+            fontSize: 14, fontWeight: 400, color: 'var(--ink-4)',
+            borderBottom: '2px solid transparent', cursor: 'pointer',
+            fontFamily: 'var(--font-sans)',
+          }}>
+            Affiche
+          </button>
+          <button style={{
+            border: 'none', background: 'none', padding: '0 4px 10px', marginLeft: 12,
+            fontSize: 14, fontWeight: 600, color: 'var(--primary)',
+            borderBottom: '2px solid var(--primary)', cursor: 'pointer',
+            fontFamily: 'var(--font-sans)',
+          }}>
+            Catalogue
+          </button>
+        </div>
+
         {/* Search */}
         <div style={{ position: 'relative' }}>
           <div style={{

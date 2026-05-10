@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Affiche } from './pages/Affiche';
 import { Catalogue } from './pages/Catalogue';
 import { Scanner } from './pages/Scanner';
 import { Product } from './pages/Product';
@@ -18,7 +19,8 @@ export function App() {
     <BrowserRouter>
       <div className="dlc-root" style={{ minHeight: '100vh' }}>
         <Routes>
-          <Route path="/" element={<Catalogue/>}/>
+          <Route path="/" element={<Affiche/>}/>
+          <Route path="/catalogue" element={<Catalogue/>}/>
           <Route path="/scan" element={<Scanner/>}/>
           <Route path="/p/:ean" element={<Product/>}/>
           <Route path="/404" element={<NotFound/>}/>
