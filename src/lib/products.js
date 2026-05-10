@@ -27,6 +27,20 @@ export async function searchProducts({ query = '', category = null, needsReview 
   return data ?? [];
 }
 
+export async function createProduct(product) {
+  const allowed = ['ean', 'title', 'brand', 'weight', 'category', 'image_url'];
+  const payload = Object.fromEntries(
+    Object.entries(product).filter(([k]) => allowed.includes(k))
+  );
+  const { data, error } = await supabase
+    .from('products')
+    .insert([payload])
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function updateProduct(ean, updates) {
   const allowed = ['title', 'brand', 'weight', 'category', 'image_url'];
   const payload = Object.fromEntries(
