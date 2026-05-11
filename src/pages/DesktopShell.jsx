@@ -152,11 +152,19 @@ function TableRow({ product, selected, onSelect, density = 'standard' }) {
 
 // ─── Affiche card (desktop) ────────────────────────────────────────
 function AfficheDesktopCard({ product, selected, onSelect }) {
+  const [copied, setCopied] = useState(false);
+
+  function copyEan(e) {
+    e.stopPropagation();
+    navigator.clipboard?.writeText(product.ean);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  }
+
   return (
     <div
-      onClick={() => onSelect(product)}
       style={{
-        borderRadius: 10, overflow: 'hidden', cursor: 'pointer',
+        borderRadius: 10, overflow: 'hidden',
         border: selected ? '2px solid var(--primary)' : '0.5px solid var(--hairline)',
         background: 'var(--canvas)', userSelect: 'none',
         transition: 'box-shadow 0.1s, border-color 0.1s',
@@ -165,29 +173,49 @@ function AfficheDesktopCard({ product, selected, onSelect }) {
       onMouseEnter={e => { if (!selected) e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)'; }}
       onMouseLeave={e => { if (!selected) e.currentTarget.style.boxShadow = 'none'; }}
     >
-      <div style={{ aspectRatio: '1', overflow: 'hidden', background: 'var(--surface)' }}>
-        {product.image_url ? (
-          <img
-            src={product.image_url} alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            onError={e => { e.currentTarget.style.opacity = '0'; }}
-          />
-        ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon.Image s={28} c="var(--stone)"/>
-          </div>
-        )}
-      </div>
-      <div style={{ padding: '8px 10px 10px' }}>
-        <div style={{
-          fontSize: 12, fontWeight: 500, color: 'var(--charcoal)',
-          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-          overflow: 'hidden', lineHeight: 1.35, minHeight: '2.7em',
-        }}>{product.title || product.ean}</div>
-        {product.brand && (
-          <div style={{ fontSize: 11, color: 'var(--slate)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.brand}</div>
-        )}
-      </div>
+      <button
+        onClick={() => onSelect(product)}
+        style={{ display: 'block', width: '100%', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+      >
+        <div style={{ aspectRatio: '1', overflow: 'hidden', background: 'var(--surface)' }}>
+          {product.image_url ? (
+            <img
+              src={product.image_url} alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              onError={e => { e.currentTarget.style.opacity = '0'; }}
+            />
+          ) : (
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon.Image s={28} c="var(--stone)"/>
+            </div>
+          )}
+        </div>
+        <div style={{ padding: '8px 10px 4px' }}>
+          <div style={{
+            fontSize: 12, fontWeight: 500, color: 'var(--charcoal)',
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+            overflow: 'hidden', lineHeight: 1.35, minHeight: '2.7em',
+          }}>{product.title || product.ean}</div>
+          {product.brand && (
+            <div style={{ fontSize: 11, color: 'var(--slate)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.brand}</div>
+          )}
+        </div>
+      </button>
+      <button
+        onClick={copyEan}
+        style={{
+          width: '100%', padding: '3px 10px 9px',
+          display: 'flex', alignItems: 'center', gap: 4,
+          border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left',
+        }}
+      >
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--slate)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {product.ean}
+        </span>
+        {copied
+          ? <Icon.Check s={10} c="var(--primary)"/>
+          : <Icon.Copy s={10} c="var(--stone)"/>}
+      </button>
     </div>
   );
 }

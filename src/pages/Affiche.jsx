@@ -73,6 +73,14 @@ function AfficheCard({ entry, onImageClick, onCardClick }) {
   const title = product?.title || entry.title || entry.ean;
   const brand = product?.brand || entry.brand || null;
   const canPickImage = !!(product || entry.packshots?.length > 0);
+  const [copied, setCopied] = useState(false);
+
+  function copyEan(e) {
+    e.stopPropagation();
+    navigator.clipboard?.writeText(entry.ean);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  }
 
   return (
     <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', background: 'var(--canvas)', border: '0.5px solid var(--hairline)' }}>
@@ -97,7 +105,7 @@ function AfficheCard({ entry, onImageClick, onCardClick }) {
             </div>
           )}
         </div>
-        <div style={{ padding: '8px 10px 10px' }}>
+        <div style={{ padding: '8px 10px 4px' }}>
           <div style={{
             fontSize: 12, fontWeight: 500, color: 'var(--ink)',
             display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
@@ -107,6 +115,21 @@ function AfficheCard({ entry, onImageClick, onCardClick }) {
             <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{brand}</div>
           )}
         </div>
+      </button>
+      <button
+        onClick={copyEan}
+        style={{
+          width: '100%', padding: '3px 10px 9px',
+          display: 'flex', alignItems: 'center', gap: 4,
+          border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left',
+        }}
+      >
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-4)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {entry.ean}
+        </span>
+        {copied
+          ? <Icon.Check s={10} c="var(--primary)"/>
+          : <Icon.Copy s={10} c="var(--ink-5)"/>}
       </button>
       {canPickImage && !entry.loadingPackshots && (
         <button
