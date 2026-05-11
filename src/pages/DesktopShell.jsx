@@ -569,6 +569,9 @@ export function DesktopShell() {
       }));
       if (cancelled) return;
       setAfficheItems(products);
+      if (products.length > 0) {
+        setSelectedProduct(prev => prev === null ? products[0] : prev);
+      }
     }
 
     loadAffiche();
