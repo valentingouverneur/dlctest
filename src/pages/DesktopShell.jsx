@@ -150,43 +150,43 @@ function TableRow({ product, selected, onSelect, density = 'standard' }) {
   );
 }
 
-// ─── Affiche row (desktop) — large packshot ────────────────────────
-function AfficheTableRow({ product, selected, onSelect }) {
-  const needsFix = !product.image_url;
+// ─── Affiche card (desktop) ────────────────────────────────────────
+function AfficheDesktopCard({ product, selected, onSelect }) {
   return (
     <div
       onClick={() => onSelect(product)}
       style={{
-        display: 'flex', alignItems: 'center', gap: 14,
-        padding: '8px 16px', height: 80,
-        borderBottom: '0.5px solid var(--hairline)',
-        background: selected ? 'var(--tint-lavender)' : 'transparent',
-        cursor: 'pointer', userSelect: 'none',
-        transition: 'background 0.07s',
+        borderRadius: 10, overflow: 'hidden', cursor: 'pointer',
+        border: selected ? '2px solid var(--primary)' : '0.5px solid var(--hairline)',
+        background: 'var(--canvas)', userSelect: 'none',
+        transition: 'box-shadow 0.1s, border-color 0.1s',
+        boxShadow: selected ? '0 0 0 3px var(--tint-lavender)' : 'none',
       }}
-      onMouseEnter={e => { if (!selected) e.currentTarget.style.background = 'rgba(20,18,14,0.026)'; }}
-      onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
+      onMouseEnter={e => { if (!selected) e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)'; }}
+      onMouseLeave={e => { if (!selected) e.currentTarget.style.boxShadow = 'none'; }}
     >
-      <Packshot
-        product={{ title: product.title, brand: product.brand, cat: catDisplayLabel(product.category), imageUrl: product.image_url }}
-        size={64} radius={8} hint={false}
-      />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-          <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--charcoal)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {product.title}
-          </span>
-          {needsFix && (
-            <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 3, background: 'var(--tint-peach)', color: 'var(--warning)', letterSpacing: '0.04em' }}>
-              À CORRIGER
-            </span>
-          )}
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--slate)' }}>{product.brand}</div>
+      <div style={{ aspectRatio: '1', overflow: 'hidden', background: 'var(--surface)' }}>
+        {product.image_url ? (
+          <img
+            src={product.image_url} alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            onError={e => { e.currentTarget.style.opacity = '0'; }}
+          />
+        ) : (
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon.Image s={28} c="var(--stone)"/>
+          </div>
+        )}
       </div>
-      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-        <Pill tone={catTone(product.category)}>{product.category || '—'}</Pill>
-        <span style={{ fontSize: 11, color: 'var(--steel)', fontFamily: 'var(--font-mono)' }}>{product.ean}</span>
+      <div style={{ padding: '8px 10px 10px' }}>
+        <div style={{
+          fontSize: 12, fontWeight: 500, color: 'var(--charcoal)',
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+          overflow: 'hidden', lineHeight: 1.35, minHeight: '2.7em',
+        }}>{product.title || product.ean}</div>
+        {product.brand && (
+          <div style={{ fontSize: 11, color: 'var(--slate)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.brand}</div>
+        )}
       </div>
     </div>
   );
@@ -733,31 +733,41 @@ export function DesktopShell() {
         {/* ── Body: table + detail panel ── */}
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
 
-          {/* Table */}
+          {/* Content area */}
           <div style={{ flex: 1, overflowY: 'auto', background: 'var(--surface)', minWidth: 0 }}>
             {err ? (
               <div style={{ padding: 24, color: 'var(--error)', fontSize: 13 }}>{err}</div>
+            ) : activeNav === 'affiche' ? (
+              <>
+                {afficheItems.length === 0 && !afficheLoading ? (
+                  <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--steel)', fontSize: 13 }}>
+                    Aucun scan enregistré. Scannez des produits depuis l'app mobile.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))', gap: 12, padding: 16 }}>
+                    {afficheItems.map(p => (
+                      <AfficheDesktopCard
+                        key={p.ean} product={p}
+                        selected={selectedProduct?.ean === p.ean}
+                        onSelect={setSelectedProduct}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
             ) : (
               <>
                 <TableHeader/>
-                {displayItems.map(p => activeNav === 'affiche' ? (
-                  <AfficheTableRow
-                    key={p.ean} product={p}
-                    selected={selectedProduct?.ean === p.ean}
-                    onSelect={setSelectedProduct}
-                  />
-                ) : (
+                {products.map(p => (
                   <TableRow
                     key={p.ean} product={p} density={density}
                     selected={selectedProduct?.ean === p.ean}
                     onSelect={setSelectedProduct}
                   />
                 ))}
-                {!displayLoading && displayItems.length === 0 && (
+                {!catalogueLoading && products.length === 0 && (
                   <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--steel)', fontSize: 13 }}>
-                    {activeNav === 'affiche'
-                      ? 'Aucun scan enregistré. Scannez des produits depuis l\'app mobile.'
-                      : needsReview ? 'Aucun produit à corriger 🎉' : 'Aucun produit trouvé'}
+                    {needsReview ? 'Aucun produit à corriger 🎉' : 'Aucun produit trouvé'}
                   </div>
                 )}
                 <div style={{ height: 32 }}/>

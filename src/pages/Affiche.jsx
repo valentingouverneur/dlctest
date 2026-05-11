@@ -5,7 +5,6 @@ import { getRecentScans } from '../lib/scans';
 import { getProductByEan, updateProduct, createProduct } from '../lib/products';
 import { fetchFromOFF } from '../lib/openFoodFacts';
 import { searchPackshots } from '../lib/bingImages';
-import { Packshot } from '../primitives';
 import { Icon } from '../icons';
 
 function PackshotModal({ packshots, currentUrl, saving, onSelect, onClose }) {
@@ -68,77 +67,61 @@ function PackshotModal({ packshots, currentUrl, saving, onSelect, onClose }) {
   );
 }
 
-function AfficheRow({ entry, onImageClick, onRowClick }) {
+function AfficheCard({ entry, onImageClick, onCardClick }) {
   const product = entry.product;
   const resolvedImage = product?.image_url || entry.packshots?.[0] || null;
   const title = product?.title || entry.title || entry.ean;
   const brand = product?.brand || entry.brand || null;
-  const category = product?.category || entry.category || null;
-  const isImageClickable = !!(product || entry.packshots?.length > 0);
+  const canPickImage = !!(product || entry.packshots?.length > 0);
 
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 12,
-      padding: '10px 16px',
-      borderBottom: '0.5px solid var(--line)',
-    }}>
-      {/* Thumbnail — opens packshot picker */}
+    <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', background: 'var(--canvas)', border: '0.5px solid var(--hairline)' }}>
       <button
-        onClick={() => isImageClickable && onImageClick(entry)}
-        disabled={entry.loadingPackshots}
-        style={{
-          width: 44, height: 44, flexShrink: 0, padding: 0,
-          border: 'none', background: 'transparent', cursor: isImageClickable ? 'pointer' : 'default',
-          borderRadius: 6, overflow: 'hidden',
-        }}
+        onClick={() => onCardClick(entry.ean)}
+        style={{ display: 'block', width: '100%', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
       >
-        {entry.loadingPackshots ? (
-          <div style={{
-            width: 44, height: 44, borderRadius: 6,
-            background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <span style={{ fontSize: 10, color: 'var(--ink-5)' }}>…</span>
-          </div>
-        ) : (
-          <Packshot
-            product={{ title, brand, cat: category === 'Glaces' ? 'Surgelés' : 'Frais', imageUrl: resolvedImage }}
-            size={44} radius={6} hint={false}
-          />
-        )}
-      </button>
-
-      {/* Main content — navigates to product sheet */}
-      <button
-        onClick={() => onRowClick(entry.ean)}
-        style={{
-          flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8,
-          border: 'none', background: 'transparent', cursor: 'pointer',
-          padding: 0, textAlign: 'left',
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontSize: 14, fontWeight: 500, color: 'var(--ink)',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            lineHeight: 1.3,
-          }}>
-            {title}
-          </div>
-          {brand && (
-            <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>{brand}</div>
+        <div style={{ aspectRatio: '1', width: '100%', overflow: 'hidden', background: 'var(--surface)' }}>
+          {entry.loadingPackshots ? (
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: 'var(--ink-5)' }}>
+              ···
+            </div>
+          ) : resolvedImage ? (
+            <img
+              src={resolvedImage} alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              onError={e => { e.currentTarget.style.opacity = '0'; }}
+            />
+          ) : (
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)' }}>
+              <Icon.Image s={24} c="var(--ink-5)"/>
+            </div>
           )}
         </div>
-        {category && (
-          <span style={{
-            fontSize: 11, color: 'var(--primary)',
-            background: 'var(--tint-lavender)',
-            borderRadius: 99, padding: '3px 8px', whiteSpace: 'nowrap', flexShrink: 0,
-          }}>
-            {category}
-          </span>
-        )}
-        <Icon.ChevronRight s={14} c="var(--ink-5)"/>
+        <div style={{ padding: '8px 10px 10px' }}>
+          <div style={{
+            fontSize: 12, fontWeight: 500, color: 'var(--ink)',
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+            overflow: 'hidden', lineHeight: 1.35, minHeight: '2.7em',
+          }}>{title}</div>
+          {brand && (
+            <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{brand}</div>
+          )}
+        </div>
       </button>
+      {canPickImage && !entry.loadingPackshots && (
+        <button
+          onClick={() => onImageClick(entry)}
+          style={{
+            position: 'absolute', top: 6, right: 6,
+            width: 28, height: 28, borderRadius: 7,
+            background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(4px)',
+            border: 'none', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <Icon.Image s={13} c="white"/>
+        </button>
+      )}
     </div>
   );
 }
@@ -283,14 +266,16 @@ export function Affiche() {
             </button>
           </div>
         ) : (
-          items.map(entry => (
-            <AfficheRow
-              key={entry.ean}
-              entry={entry}
-              onImageClick={handleImageClick}
-              onRowClick={(ean) => nav(`/p/${ean}`)}
-            />
-          ))
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, padding: '12px' }}>
+            {items.map(entry => (
+              <AfficheCard
+                key={entry.ean}
+                entry={entry}
+                onImageClick={handleImageClick}
+                onCardClick={(ean) => nav(`/p/${ean}`)}
+              />
+            ))}
+          </div>
         )}
       </main>
 
