@@ -126,7 +126,7 @@ function TableRow({ product, selected, onSelect, density = 'standard' }) {
       onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
     >
       <Packshot
-        product={{ title: product.title, brand: product.brand, cat: catDisplayLabel(product.category), imageUrl: product.image_url }}
+        product={{ title: product.title, brand: product.brand, cat: catDisplayLabel(product.category), imageUrl: product.image_url || product.packshots?.[0] }}
         size={ps} radius={3} hint={false}
       />
       <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--charcoal)', fontWeight: 450 }}>
@@ -574,6 +574,7 @@ export function DesktopShell() {
           weight: null,
           image_url: localMap[ean]?.image_url || null,
           category: localMap[ean]?.category || null,
+          packshots: [],
         })));
         setAfficheLoading(false);
       }
@@ -581,10 +582,10 @@ export function DesktopShell() {
       // Enrich with Supabase then OFF fallback
       const products = await Promise.all(eans.map(async ean => {
         const p = await getProductByEan(ean).catch(() => null);
-        if (p) return p;
+        if (p) return { ...p, packshots: [] };
         // Not in catalogue — try OFF for metadata
         const offP = await fetchFromOFF(ean).catch(() => null);
-        if (offP) return { ...offP };
+        if (offP) return { ...offP, packshots: [] };
         // Last resort: localStorage cache
         return localMap[ean] ? {
           ean,
@@ -593,13 +594,22 @@ export function DesktopShell() {
           weight: null,
           image_url: null,
           category: localMap[ean].category || null,
-        } : { ean, title: ean, brand: null, weight: null, image_url: null, category: null };
+          packshots: [],
+        } : { ean, title: ean, brand: null, weight: null, image_url: null, category: null, packshots: [] };
       }));
       if (cancelled) return;
       setAfficheItems(products);
       if (products.length > 0) {
         setSelectedProduct(prev => prev === null ? products[0] : prev);
       }
+
+      // Fetch Bing packshots for items without images (fire-and-forget)
+      products.forEach(async (p) => {
+        if (p.image_url || !p.title || p.title === p.ean) return;
+        const packshots = await searchPackshots(p.title, p.brand).catch(() => []);
+        if (cancelled || packshots.length === 0) return;
+        setAfficheItems(prev => prev.map(it => it.ean === p.ean ? { ...it, packshots } : it));
+      });
     }
 
     loadAffiche();
@@ -770,21 +780,20 @@ export function DesktopShell() {
               <div style={{ padding: 24, color: 'var(--error)', fontSize: 13 }}>{err}</div>
             ) : activeNav === 'affiche' ? (
               <>
-                {afficheItems.length === 0 && !afficheLoading ? (
+                <TableHeader/>
+                {afficheItems.map(p => (
+                  <TableRow
+                    key={p.ean} product={p} density={density}
+                    selected={selectedProduct?.ean === p.ean}
+                    onSelect={setSelectedProduct}
+                  />
+                ))}
+                {afficheItems.length === 0 && !afficheLoading && (
                   <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--steel)', fontSize: 13 }}>
                     Aucun scan enregistré. Scannez des produits depuis l'app mobile.
                   </div>
-                ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))', gap: 12, padding: 16 }}>
-                    {afficheItems.map(p => (
-                      <AfficheDesktopCard
-                        key={p.ean} product={p}
-                        selected={selectedProduct?.ean === p.ean}
-                        onSelect={setSelectedProduct}
-                      />
-                    ))}
-                  </div>
                 )}
+                <div style={{ height: 32 }}/>
               </>
             ) : (
               <>

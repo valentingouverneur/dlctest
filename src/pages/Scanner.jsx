@@ -95,7 +95,7 @@ export function Scanner() {
   const detectorRef = useRef(null);
   const rafRef = useRef(null);
   const navigatingRef = useRef(false);
-  const batchModeRef = useRef(false);
+  const batchModeRef = useRef(true);
   const loopFnRef = useRef(null);
   const mountedRef = useRef(true);
 
@@ -111,7 +111,7 @@ export function Scanner() {
   const [recentScans, setRecentScans] = useState(() => getRecentWithData(4));
 
   // Detection states
-  const [batchMode, setBatchMode] = useState(false);
+  const [batchMode, setBatchMode] = useState(true);
   const [batchToast, setBatchToast] = useState(null);
   const [lowConf, setLowConf] = useState(null);
   const [lastDetected, setLastDetected] = useState(null);
