@@ -6,6 +6,7 @@ import { fetchFromOFF } from '../lib/openFoodFacts';
 import { getTodayCount, getHistory } from '../lib/scanHistory';
 import { getRecentScans } from '../lib/scans';
 import { searchPackshots } from '../lib/bingImages';
+import { supabase } from '../lib/supabase';
 
 const CATEGORIES = ['Glaces', 'Viande', 'Poisson', 'Légumes', 'Pizza', 'Plats cuisinés', 'Frites', 'Entrée'];
 const GRID = '56px 1.8fr 1fr 88px 148px 118px';
@@ -623,6 +624,49 @@ export function DesktopShell() {
 
     loadAffiche();
     return () => { cancelled = true; };
+  }, [activeNav]);
+
+  // Realtime: prepend new scans as they arrive
+  useEffect(() => {
+    if (activeNav !== 'affiche') return;
+
+    const channel = supabase
+      .channel('scans-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'scans' },
+        async ({ new: row }) => {
+          const ean = row.ean;
+
+          // Fetch full product data using same fallback chain as loadAffiche
+          const p =
+            (await getProductByEan(ean).catch(() => null)) ??
+            (await fetchFromOFF(ean).catch(() => null)) ??
+            { ean, title: ean, brand: null, weight: null, image_url: null, category: null, packshots: [] };
+
+          // Prepend, deduplicating by EAN
+          setAfficheItems(prev => [{ ...p, packshots: p.packshots ?? [] }, ...prev.filter(x => x.ean !== ean)]);
+
+          // Auto-select if nothing is selected
+          setSelectedProduct(sel => sel === null ? p : sel);
+
+          // Fire-and-forget Bing packshot fetch
+          if (!p.image_url && p.title !== ean) {
+            searchPackshots(p.title, p.brand)
+              .then(shots => {
+                if (shots.length) {
+                  setAfficheItems(prev =>
+                    prev.map(it => it.ean === ean ? { ...it, packshots: shots } : it)
+                  );
+                }
+              })
+              .catch(() => {});
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [activeNav]);
 
   const handleNav = (nav) => {
