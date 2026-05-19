@@ -4,7 +4,7 @@ import { getProductByEan, createProduct, updateProduct } from '../lib/products';
 import { fetchFromOFF } from '../lib/openFoodFacts';
 import { searchPackshot } from '../lib/bingImages';
 import { addScan } from '../lib/scanHistory';
-import { Packshot, CopyField } from '../primitives';
+import { Packshot, CopyField, ImageModal } from '../primitives';
 import { Icon } from '../icons';
 
 function copyToClipboard(text) {
@@ -309,18 +309,25 @@ function ProductSheet({
   onOFFSaved, onOFFDismiss,
   onBingAccept, onBingDismiss,
 }) {
+  const [modalSrc, setModalSrc] = useState(null);
   const catLabel = product.category === 'Glaces' ? 'Surgelés' : product.category;
 
   return (
     <div className="app-shell">
+      {modalSrc && <ImageModal src={modalSrc} onClose={() => setModalSrc(null)}/>}
       <Header onBack={onBack} onScan={onScan}/>
 
       {/* Packshot + title */}
       <div style={{ padding: '20px 16px 16px', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-        <Packshot
-          product={{ title: product.title, brand: product.brand, cat: catLabel, imageUrl: resolvedImageUrl }}
-          size={88} radius={10} hint={false}
-        />
+        <div
+          onClick={() => resolvedImageUrl && setModalSrc(resolvedImageUrl)}
+          style={{ cursor: resolvedImageUrl ? 'zoom-in' : 'default', flexShrink: 0 }}
+        >
+          <Packshot
+            product={{ title: product.title, brand: product.brand, cat: catLabel, imageUrl: resolvedImageUrl }}
+            size={88} radius={10} hint={false}
+          />
+        </div>
         <div style={{ flex: 1, minWidth: 0, paddingTop: 4 }}>
           <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 }}>{product.title}</div>
           <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 4 }}>{product.brand}</div>

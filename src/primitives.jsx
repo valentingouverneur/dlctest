@@ -1,5 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icon } from './icons';
+
+// Lightbox overlay for full-size image preview
+export function ImageModal({ src, onClose }) {
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.82)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <img
+        src={src} alt=""
+        onClick={e => e.stopPropagation()}
+        style={{
+          maxWidth: '90vw', maxHeight: '90vh',
+          objectFit: 'contain',
+          borderRadius: 8,
+          boxShadow: '0 8px 48px rgba(0,0,0,0.6)',
+        }}
+      />
+    </div>
+  );
+}
 
 // Stripe placeholder packshot. Renders brand initials in mono with per-product warm tint.
 export function Packshot({ product, size = 96, radius = 10, hint = true, missing = false }) {

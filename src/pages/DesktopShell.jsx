@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Packshot, CopyField, SideItem, Pill } from '../primitives';
+import { Packshot, CopyField, SideItem, Pill, ImageModal } from '../primitives';
 import { Icon } from '../icons';
 import { searchProducts, getProductByEan, updateProduct, createProduct } from '../lib/products';
 import { fetchFromOFF } from '../lib/openFoodFacts';
@@ -8,7 +8,7 @@ import { getRecentScans } from '../lib/scans';
 import { searchPackshots } from '../lib/bingImages';
 
 const CATEGORIES = ['Glaces', 'Viande', 'Poisson', 'Légumes', 'Pizza', 'Plats cuisinés', 'Frites', 'Entrée'];
-const GRID = '32px 1.8fr 1fr 88px 148px 118px';
+const GRID = '56px 1.8fr 1fr 88px 148px 28px 118px';
 
 function copyToClipboard(text) {
   if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
@@ -99,6 +99,7 @@ function TableHeader() {
       {cell('Marque')}
       {cell('Poids')}
       {cell('EAN')}
+      <div/>
       {cell('Catégorie', { textAlign: 'right' })}
     </div>
   );
@@ -106,47 +107,82 @@ function TableHeader() {
 
 // ─── Table row ─────────────────────────────────────────────────────
 function TableRow({ product, selected, onSelect, density = 'standard' }) {
-  const h = { compact: 30, standard: 38, comfort: 46 }[density] ?? 38;
-  const ps = { compact: 22, standard: 26, comfort: 32 }[density] ?? 26;
+  const h = { compact: 36, standard: 48, comfort: 60 }[density] ?? 48;
+  const ps = { compact: 28, standard: 40, comfort: 52 }[density] ?? 40;
   const needsFix = !product.image_url;
+  const [copied, setCopied] = useState(false);
+  const [modalSrc, setModalSrc] = useState(null);
+
+  const copyEan = (e) => {
+    e.stopPropagation();
+    copyToClipboard(product.ean);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1000);
+  };
+
+  const openImage = (e) => {
+    e.stopPropagation();
+    const src = product.image_url || product.packshots?.[0];
+    if (src) setModalSrc(src);
+  };
+
+  const hasImage = !!(product.image_url || product.packshots?.[0]);
 
   return (
-    <div
-      onClick={() => onSelect(product)}
-      style={{
-        display: 'grid', gridTemplateColumns: GRID,
-        alignItems: 'center', gap: 12,
-        padding: '0 16px', height: h,
-        borderBottom: '0.5px solid var(--hairline)',
-        background: selected ? 'var(--tint-lavender)' : 'transparent',
-        cursor: 'pointer', fontSize: 13, userSelect: 'none',
-        transition: 'background 0.07s',
-      }}
-      onMouseEnter={e => { if (!selected) e.currentTarget.style.background = 'rgba(20,18,14,0.026)'; }}
-      onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
-    >
-      <Packshot
-        product={{ title: product.title, brand: product.brand, cat: catDisplayLabel(product.category), imageUrl: product.image_url || product.packshots?.[0] }}
-        size={ps} radius={3} hint={false}
-      />
-      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--charcoal)', fontWeight: 450 }}>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.title}</span>
-        {needsFix && (
-          <span style={{
-            flexShrink: 0, fontSize: 10, fontWeight: 600,
-            padding: '1px 6px', borderRadius: 3,
-            background: 'var(--tint-peach)', color: 'var(--warning)',
-            letterSpacing: '0.04em',
-          }}>À CORRIGER</span>
-        )}
+    <>
+      {modalSrc && <ImageModal src={modalSrc} onClose={() => setModalSrc(null)}/>}
+      <div
+        onClick={() => onSelect(product)}
+        style={{
+          display: 'grid', gridTemplateColumns: GRID,
+          alignItems: 'center', gap: 12,
+          padding: '0 16px', height: h,
+          borderBottom: '0.5px solid var(--hairline)',
+          background: selected ? 'var(--tint-lavender)' : 'transparent',
+          cursor: 'pointer', fontSize: 13, userSelect: 'none',
+          transition: 'background 0.07s',
+        }}
+        onMouseEnter={e => { if (!selected) e.currentTarget.style.background = 'rgba(20,18,14,0.026)'; }}
+        onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
+      >
+        <div onClick={openImage} style={{ cursor: hasImage ? 'zoom-in' : 'default' }}>
+          <Packshot
+            product={{ title: product.title, brand: product.brand, cat: catDisplayLabel(product.category), imageUrl: product.image_url || product.packshots?.[0] }}
+            size={ps} radius={4} hint={false}
+          />
+        </div>
+        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--charcoal)', fontWeight: 450 }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.title}</span>
+          {needsFix && (
+            <span style={{
+              flexShrink: 0, fontSize: 10, fontWeight: 600,
+              padding: '1px 6px', borderRadius: 3,
+              background: 'var(--tint-peach)', color: 'var(--warning)',
+              letterSpacing: '0.04em',
+            }}>À CORRIGER</span>
+          )}
+        </div>
+        <div style={{ color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.brand}</div>
+        <div style={{ color: 'var(--slate)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>{product.weight}</div>
+        <div style={{ color: 'var(--steel)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>{product.ean}</div>
+        <button
+          onClick={copyEan}
+          title="Copier EAN"
+          style={{
+            width: 24, height: 24, borderRadius: 4,
+            border: 'none', background: 'transparent',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: copied ? 'var(--primary)' : 'var(--stone)',
+            transition: 'color 0.15s',
+          }}
+        >
+          {copied ? <Icon.Check s={12}/> : <Icon.Copy s={12}/>}
+        </button>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Pill tone={catTone(product.category)}>{product.category || '—'}</Pill>
+        </div>
       </div>
-      <div style={{ color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.brand}</div>
-      <div style={{ color: 'var(--slate)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>{product.weight}</div>
-      <div style={{ color: 'var(--steel)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>{product.ean}</div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Pill tone={catTone(product.category)}>{product.category || '—'}</Pill>
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -245,6 +281,7 @@ function DetailPanel({ product, onUpdate, onClose }) {
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState(null);
   const [copiedAll, setCopiedAll] = useState(false);
+  const [modalSrc, setModalSrc] = useState(null);
 
   // Packshot picker
   const [pickerPackshots, setPickerPackshots] = useState([]);
@@ -360,6 +397,7 @@ function DetailPanel({ product, onUpdate, onClose }) {
       display: 'flex', flexDirection: 'column',
       background: 'var(--surface)', overflow: 'hidden',
     }}>
+      {modalSrc && <ImageModal src={modalSrc} onClose={() => setModalSrc(null)}/>}
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center',
@@ -387,10 +425,15 @@ function DetailPanel({ product, onUpdate, onClose }) {
           padding: '20px 24px 14px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
           background: 'var(--canvas)', borderBottom: '0.5px solid var(--hairline)',
         }}>
-          <Packshot
-            product={{ title: product.title, brand: product.brand, cat: catDisplayLabel(product.category), imageUrl: product.image_url }}
-            size={120} radius={12}
-          />
+          <div
+            onClick={() => product.image_url && setModalSrc(product.image_url)}
+            style={{ cursor: product.image_url ? 'zoom-in' : 'default' }}
+          >
+            <Packshot
+              product={{ title: product.title, brand: product.brand, cat: catDisplayLabel(product.category), imageUrl: product.image_url }}
+              size={120} radius={12}
+            />
+          </div>
           <button
             onClick={handleOpenPicker}
             disabled={pickerLoading}
