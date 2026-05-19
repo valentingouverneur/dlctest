@@ -8,7 +8,7 @@ import { getRecentScans } from '../lib/scans';
 import { searchPackshots } from '../lib/bingImages';
 
 const CATEGORIES = ['Glaces', 'Viande', 'Poisson', 'Légumes', 'Pizza', 'Plats cuisinés', 'Frites', 'Entrée'];
-const GRID = '56px 1.8fr 1fr 88px 148px 28px 118px';
+const GRID = '56px 1.8fr 1fr 88px 148px 118px';
 
 function copyToClipboard(text) {
   if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
@@ -99,26 +99,14 @@ function TableHeader() {
       {cell('Marque')}
       {cell('Poids')}
       {cell('EAN')}
-      <div/>
       {cell('Catégorie', { textAlign: 'right' })}
     </div>
   );
 }
 
 // ─── Table row ─────────────────────────────────────────────────────
-function TableRow({ product, selected, onSelect, density = 'standard' }) {
-  const h = { compact: 36, standard: 48, comfort: 60 }[density] ?? 48;
-  const ps = { compact: 28, standard: 40, comfort: 52 }[density] ?? 40;
-  const needsFix = !product.image_url;
-  const [copied, setCopied] = useState(false);
+function TableRow({ product, selected, onSelect }) {
   const [modalSrc, setModalSrc] = useState(null);
-
-  const copyEan = (e) => {
-    e.stopPropagation();
-    copyToClipboard(product.ean);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1000);
-  };
 
   const openImage = (e) => {
     e.stopPropagation();
@@ -136,7 +124,7 @@ function TableRow({ product, selected, onSelect, density = 'standard' }) {
         style={{
           display: 'grid', gridTemplateColumns: GRID,
           alignItems: 'center', gap: 12,
-          padding: '0 16px', height: h,
+          padding: '0 16px', height: 48,
           borderBottom: '0.5px solid var(--hairline)',
           background: selected ? 'var(--tint-lavender)' : 'transparent',
           cursor: 'pointer', fontSize: 13, userSelect: 'none',
@@ -148,36 +136,15 @@ function TableRow({ product, selected, onSelect, density = 'standard' }) {
         <div onClick={openImage} style={{ cursor: hasImage ? 'zoom-in' : 'default' }}>
           <Packshot
             product={{ title: product.title, brand: product.brand, cat: catDisplayLabel(product.category), imageUrl: product.image_url || product.packshots?.[0] }}
-            size={ps} radius={4} hint={false}
+            size={40} radius={4} hint={false}
           />
         </div>
-        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--charcoal)', fontWeight: 450 }}>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.title}</span>
-          {needsFix && (
-            <span style={{
-              flexShrink: 0, fontSize: 10, fontWeight: 600,
-              padding: '1px 6px', borderRadius: 3,
-              background: 'var(--tint-peach)', color: 'var(--warning)',
-              letterSpacing: '0.04em',
-            }}>À CORRIGER</span>
-          )}
+        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--charcoal)', fontWeight: 450 }}>
+          {product.title}
         </div>
         <div style={{ color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.brand}</div>
         <div style={{ color: 'var(--slate)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>{product.weight}</div>
         <div style={{ color: 'var(--steel)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>{product.ean}</div>
-        <button
-          onClick={copyEan}
-          title="Copier EAN"
-          style={{
-            width: 24, height: 24, borderRadius: 4,
-            border: 'none', background: 'transparent',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: copied ? 'var(--primary)' : 'var(--stone)',
-            transition: 'color 0.15s',
-          }}
-        >
-          {copied ? <Icon.Check s={12}/> : <Icon.Copy s={12}/>}
-        </button>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <Pill tone={catTone(product.category)}>{product.category || '—'}</Pill>
         </div>
@@ -560,7 +527,6 @@ export function DesktopShell() {
   // Shared
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [pasteEan, setPasteEan] = useState('');
-  const [density, setDensity] = useState('standard');
   const [scanCount, setScanCount] = useState(0);
 
   useEffect(() => { setScanCount(getTodayCount()); }, []);
@@ -743,20 +709,6 @@ export function DesktopShell() {
 
           <div style={{ flex: 1 }}/>
 
-          {/* Density toggle */}
-          <div style={{ display: 'flex', gap: 1, padding: 2, background: 'var(--surface)', borderRadius: 6, border: '0.5px solid var(--hairline)' }}>
-            {[['compact', 'Compact'], ['standard', 'Standard'], ['comfort', 'Aéré']].map(([d, label]) => (
-              <button key={d} onClick={() => setDensity(d)} style={{
-                height: 22, padding: '0 8px', borderRadius: 4,
-                background: density === d ? 'var(--canvas)' : 'transparent',
-                border: density === d ? '0.5px solid var(--hairline)' : 'none',
-                cursor: 'pointer', fontSize: 11, fontFamily: 'inherit',
-                color: density === d ? 'var(--charcoal)' : 'var(--stone)',
-                fontWeight: density === d ? 500 : 400,
-              }}>{label}</button>
-            ))}
-          </div>
-
           {/* Search — catalogue only */}
           {activeNav === 'catalogue' && (
             <div style={{
@@ -826,7 +778,7 @@ export function DesktopShell() {
                 <TableHeader/>
                 {afficheItems.map(p => (
                   <TableRow
-                    key={p.ean} product={p} density={density}
+                    key={p.ean} product={p}
                     selected={selectedProduct?.ean === p.ean}
                     onSelect={setSelectedProduct}
                   />
@@ -843,7 +795,7 @@ export function DesktopShell() {
                 <TableHeader/>
                 {products.map(p => (
                   <TableRow
-                    key={p.ean} product={p} density={density}
+                    key={p.ean} product={p}
                     selected={selectedProduct?.ean === p.ean}
                     onSelect={setSelectedProduct}
                   />
