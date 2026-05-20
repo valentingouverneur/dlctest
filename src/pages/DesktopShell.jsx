@@ -142,8 +142,7 @@ function TableRow({ product, selected, onSelect, checked, onToggle }) {
         <input
           type="checkbox"
           checked={checked}
-          onChange={() => {}}
-          onClick={e => { e.stopPropagation(); onToggle(product.ean); }}
+          onChange={e => { e.stopPropagation(); onToggle(product.ean); }}
           style={{ cursor: 'pointer', accentColor: 'var(--primary)', width: 14, height: 14 }}
         />
         <div onClick={openImage} style={{ cursor: hasImage ? 'zoom-in' : 'default' }}>
@@ -700,10 +699,11 @@ export function DesktopShell() {
   };
 
   const handleSelectAll = () => {
-    if (selectedEans.size === displayItems.length && displayItems.length > 0) {
+    const items = activeNav === 'affiche' ? afficheItems : products;
+    if (selectedEans.size === items.length && items.length > 0) {
       setSelectedEans(new Set());
     } else {
-      setSelectedEans(new Set(displayItems.map(p => p.ean)));
+      setSelectedEans(new Set(items.map(p => p.ean)));
     }
   };
 
@@ -853,7 +853,7 @@ export function DesktopShell() {
             ) : activeNav === 'affiche' ? (
               <>
                 <TableHeader
-                  allSelected={displayItems.length > 0 && selectedEans.size === displayItems.length}
+                  allSelected={afficheItems.length > 0 && selectedEans.size === afficheItems.length}
                   onSelectAll={handleSelectAll}
                 />
                 {afficheItems.map(p => (
@@ -875,7 +875,7 @@ export function DesktopShell() {
             ) : (
               <>
                 <TableHeader
-                  allSelected={displayItems.length > 0 && selectedEans.size === displayItems.length}
+                  allSelected={products.length > 0 && selectedEans.size === products.length}
                   onSelectAll={handleSelectAll}
                 />
                 {products.map(p => (
