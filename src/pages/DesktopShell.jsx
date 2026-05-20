@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Packshot, CopyField, SideItem, Pill, ImageModal } from '../primitives';
 import { Icon } from '../icons';
-import { searchProducts, getProductByEan, updateProduct, createProduct } from '../lib/products';
+import { searchProducts, getProductByEan, updateProduct, createProduct, deleteProduct } from '../lib/products';
 import { fetchFromOFF } from '../lib/openFoodFacts';
 import { getTodayCount, getHistory } from '../lib/scanHistory';
 import { getRecentScans } from '../lib/scans';
@@ -9,7 +9,7 @@ import { searchPackshots } from '../lib/bingImages';
 import { supabase } from '../lib/supabase';
 
 const CATEGORIES = ['Glaces', 'Viande', 'Poisson', 'Légumes', 'Pizza', 'Plats cuisinés', 'Frites', 'Entrée'];
-const GRID = '56px 1.8fr 1fr 88px 148px 118px';
+const GRID = '20px 56px 1.8fr 1fr 88px 148px 118px';
 
 function copyToClipboard(text) {
   if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
@@ -80,7 +80,7 @@ function DesktopSidebar({ activeNav, onNav, scanCount }) {
 }
 
 // ─── Table header ──────────────────────────────────────────────────
-function TableHeader() {
+function TableHeader({ allSelected, onSelectAll }) {
   const cell = (label, extra = {}) => (
     <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', color: 'var(--stone)', textTransform: 'uppercase', ...extra }}>
       {label}
@@ -95,7 +95,12 @@ function TableHeader() {
       background: 'var(--canvas)',
       position: 'sticky', top: 0, zIndex: 1,
     }}>
-      <div/>
+      <input
+        type="checkbox"
+        checked={allSelected}
+        onChange={onSelectAll}
+        style={{ cursor: 'pointer', accentColor: 'var(--primary)', width: 14, height: 14 }}
+      />
       {cell('Titre')}
       {cell('Marque')}
       {cell('Poids')}
@@ -106,7 +111,7 @@ function TableHeader() {
 }
 
 // ─── Table row ─────────────────────────────────────────────────────
-function TableRow({ product, selected, onSelect }) {
+function TableRow({ product, selected, onSelect, checked, onToggle }) {
   const [modalSrc, setModalSrc] = useState(null);
 
   const openImage = (e) => {
@@ -127,13 +132,20 @@ function TableRow({ product, selected, onSelect }) {
           alignItems: 'center', gap: 12,
           padding: '0 16px', height: 48,
           borderBottom: '0.5px solid var(--hairline)',
-          background: selected ? 'var(--tint-lavender)' : 'transparent',
+          background: selected || checked ? 'var(--tint-lavender)' : 'transparent',
           cursor: 'pointer', fontSize: 13, userSelect: 'none',
           transition: 'background 0.07s',
         }}
-        onMouseEnter={e => { if (!selected) e.currentTarget.style.background = 'rgba(20,18,14,0.026)'; }}
-        onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
+        onMouseEnter={e => { if (!selected && !checked) e.currentTarget.style.background = 'rgba(20,18,14,0.026)'; }}
+        onMouseLeave={e => { if (!selected && !checked) e.currentTarget.style.background = 'transparent'; }}
       >
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={() => {}}
+          onClick={e => { e.stopPropagation(); onToggle(product.ean); }}
+          style={{ cursor: 'pointer', accentColor: 'var(--primary)', width: 14, height: 14 }}
+        />
         <div onClick={openImage} style={{ cursor: hasImage ? 'zoom-in' : 'default' }}>
           <Packshot
             product={{ title: product.title, brand: product.brand, cat: catDisplayLabel(product.category), imageUrl: product.image_url || product.packshots?.[0] }}
@@ -529,6 +541,9 @@ export function DesktopShell() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [pasteEan, setPasteEan] = useState('');
   const [scanCount, setScanCount] = useState(0);
+  const [selectedEans, setSelectedEans] = useState(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkDeleteError, setBulkDeleteError] = useState(null);
 
   useEffect(() => { setScanCount(getTodayCount()); }, []);
 
@@ -672,6 +687,24 @@ export function DesktopShell() {
   const handleNav = (nav) => {
     setActiveNav(nav);
     setSelectedProduct(null);
+    setSelectedEans(new Set());
+    setBulkDeleteError(null);
+  };
+
+  const handleToggleSelect = (ean) => {
+    setSelectedEans(prev => {
+      const s = new Set(prev);
+      s.has(ean) ? s.delete(ean) : s.add(ean);
+      return s;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedEans.size === displayItems.length && displayItems.length > 0) {
+      setSelectedEans(new Set());
+    } else {
+      setSelectedEans(new Set(displayItems.map(p => p.ean)));
+    }
   };
 
   const submitPaste = async (e) => {
@@ -819,12 +852,17 @@ export function DesktopShell() {
               <div style={{ padding: 24, color: 'var(--error)', fontSize: 13 }}>{err}</div>
             ) : activeNav === 'affiche' ? (
               <>
-                <TableHeader/>
+                <TableHeader
+                  allSelected={displayItems.length > 0 && selectedEans.size === displayItems.length}
+                  onSelectAll={handleSelectAll}
+                />
                 {afficheItems.map(p => (
                   <TableRow
                     key={p.ean} product={p}
                     selected={selectedProduct?.ean === p.ean}
                     onSelect={setSelectedProduct}
+                    checked={selectedEans.has(p.ean)}
+                    onToggle={handleToggleSelect}
                   />
                 ))}
                 {afficheItems.length === 0 && !afficheLoading && (
@@ -836,12 +874,17 @@ export function DesktopShell() {
               </>
             ) : (
               <>
-                <TableHeader/>
+                <TableHeader
+                  allSelected={displayItems.length > 0 && selectedEans.size === displayItems.length}
+                  onSelectAll={handleSelectAll}
+                />
                 {products.map(p => (
                   <TableRow
                     key={p.ean} product={p}
                     selected={selectedProduct?.ean === p.ean}
                     onSelect={setSelectedProduct}
+                    checked={selectedEans.has(p.ean)}
+                    onToggle={handleToggleSelect}
                   />
                 ))}
                 {!catalogueLoading && products.length === 0 && (
