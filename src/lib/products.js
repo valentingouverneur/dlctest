@@ -56,6 +56,11 @@ export async function updateProduct(ean, updates) {
   return data;
 }
 
+export async function deleteProduct(ean) {
+  const { error } = await supabase.from('products').delete().eq('ean', ean);
+  if (error) throw error;
+}
+
 export async function listCategories() {
   const { data, error } = await supabase
     .from('products')
