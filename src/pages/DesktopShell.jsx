@@ -707,6 +707,26 @@ export function DesktopShell() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    setBulkDeleting(true);
+    setBulkDeleteError(null);
+    const eans = [...selectedEans];
+    const results = await Promise.allSettled(eans.map(ean => deleteProduct(ean)));
+    const succeeded = eans.filter((_, i) => results[i].status === 'fulfilled');
+    const failed = eans.filter((_, i) => results[i].status === 'rejected');
+    if (succeeded.length > 0) {
+      const successSet = new Set(succeeded);
+      setProducts(prev => prev.filter(p => !successSet.has(p.ean)));
+      setAfficheItems(prev => prev.filter(p => !successSet.has(p.ean)));
+      if (selectedProduct && successSet.has(selectedProduct.ean)) setSelectedProduct(null);
+      setSelectedEans(new Set(failed));
+    }
+    if (failed.length > 0) {
+      setBulkDeleteError(`${failed.length} suppression(s) échouée(s)`);
+    }
+    setBulkDeleting(false);
+  };
+
   const submitPaste = async (e) => {
     e.preventDefault();
     if (pasteEan.length < 8) return;
@@ -840,6 +860,38 @@ export function DesktopShell() {
             <span style={{ fontSize: 11, color: 'var(--steel)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
               {displayLoading ? '…' : `${products.length} résultats`}
             </span>
+          </div>
+        )}
+
+        {/* ── Bulk action bar ── */}
+        {selectedEans.size > 0 && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '0 16px', height: 38, flexShrink: 0,
+            background: 'var(--tint-peach)',
+            borderBottom: '0.5px solid var(--hairline)',
+          }}>
+            <span style={{ fontSize: 13, color: 'var(--charcoal)', flex: 1 }}>
+              {selectedEans.size} produit{selectedEans.size > 1 ? 's' : ''} sélectionné{selectedEans.size > 1 ? 's' : ''}
+            </span>
+            {bulkDeleteError && (
+              <span style={{ fontSize: 12, color: 'var(--error)' }}>{bulkDeleteError}</span>
+            )}
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="btn"
+              style={{ height: 28, fontSize: 12, color: 'var(--error)', borderColor: 'rgba(160,46,109,0.25)' }}
+            >
+              {bulkDeleting ? 'Suppression…' : `Supprimer ${selectedEans.size}`}
+            </button>
+            <button
+              onClick={() => { setSelectedEans(new Set()); setBulkDeleteError(null); }}
+              className="btn btn-ghost"
+              style={{ height: 28, width: 28, padding: 0, justifyContent: 'center' }}
+            >
+              <Icon.Close s={13}/>
+            </button>
           </div>
         )}
 
