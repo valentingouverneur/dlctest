@@ -1,4 +1,12 @@
+import { getCachedPackshots, setCachedPackshots } from './packshotCache';
+
 async function fetchPackshots(title, brand, count, ean) {
+  // Cache hit — no API call
+  if (ean) {
+    const cached = getCachedPackshots(ean);
+    if (cached) return cached.slice(0, count);
+  }
+
   const url = new URL('/api/search-image', window.location.origin);
   url.searchParams.set('title', title || '');
   if (brand) url.searchParams.set('brand', brand);
@@ -8,7 +16,9 @@ async function fetchPackshots(title, brand, count, ean) {
     const res = await fetch(url.toString());
     if (!res.ok) return [];
     const json = await res.json();
-    return (json.images ?? []).slice(0, count);
+    const images = (json.images ?? []).slice(0, count);
+    if (ean) setCachedPackshots(ean, json.images ?? []);
+    return images;
   } catch {
     return [];
   }
