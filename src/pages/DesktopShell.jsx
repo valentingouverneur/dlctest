@@ -405,11 +405,11 @@ function DetailPanel({ product, onUpdate, onClose }) {
           background: 'var(--canvas)', borderBottom: '0.5px solid var(--hairline)',
         }}>
           <div
-            onClick={() => product.image_url && setModalSrc(product.image_url)}
-            style={{ cursor: product.image_url ? 'zoom-in' : 'default' }}
+            onClick={() => (product.image_url || product.packshots?.[0]) && setModalSrc(product.image_url || product.packshots?.[0])}
+            style={{ cursor: (product.image_url || product.packshots?.[0]) ? 'zoom-in' : 'default' }}
           >
             <Packshot
-              product={{ title: product.title, brand: product.brand, cat: catDisplayLabel(product.category), imageUrl: product.image_url }}
+              product={{ title: product.title, brand: product.brand, cat: catDisplayLabel(product.category), imageUrl: product.image_url || product.packshots?.[0] }}
               size={120} radius={12}
             />
           </div>
@@ -633,6 +633,7 @@ export function DesktopShell() {
         const packshots = await searchPackshots(p.title, p.brand, 3, p.ean).catch(() => []);
         if (cancelled || packshots.length === 0) return;
         setAfficheItems(prev => prev.map(it => it.ean === p.ean ? { ...it, packshots } : it));
+        setSelectedProduct(sel => sel?.ean === p.ean ? { ...sel, packshots } : sel);
       });
     }
 
@@ -672,6 +673,7 @@ export function DesktopShell() {
                   setAfficheItems(prev =>
                     prev.map(it => it.ean === ean ? { ...it, packshots: shots } : it)
                   );
+                  setSelectedProduct(sel => sel?.ean === ean ? { ...sel, packshots: shots } : sel);
                 }
               })
               .catch(() => {});
