@@ -128,7 +128,7 @@ function CopyBtn({ value, field, copiedField, onCopy }) {
       onMouseEnter={e => { e.currentTarget.style.opacity = '1'; if (!done) e.currentTarget.style.background = 'var(--surface)'; }}
       onMouseLeave={e => { if (!done) { e.currentTarget.style.opacity = '0.5'; e.currentTarget.style.background = 'transparent'; } }}
     >
-      {done ? <Icon.Check s={11} c="var(--success)"/> : <Icon.Copy s={11}/>}
+      {done ? <Icon.Check s={13} c="var(--success)"/> : <Icon.Copy s={13}/>}
     </button>
   );
 }
