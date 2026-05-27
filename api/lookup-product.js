@@ -15,7 +15,9 @@ function mapCategory(tags) {
 
 export default async function handler(req, res) {
   const { ean } = req.query;
-  if (!ean) return res.status(400).json({ error: 'missing_ean' });
+  if (!ean || !/^\d{8,13}$/.test(ean)) {
+    return res.status(400).json({ error: 'invalid_ean' });
+  }
 
   try {
     const offRes = await fetch(
@@ -42,7 +44,8 @@ export default async function handler(req, res) {
       category: mapCategory(p.categories_tags),
       source: 'openfoodfacts',
     });
-  } catch {
+  } catch (err) {
+    console.error('OFF lookup error:', err);
     return res.status(404).json({ error: 'not_found' });
   }
 }
