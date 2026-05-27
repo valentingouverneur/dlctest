@@ -118,7 +118,7 @@ function CopyBtn({ value, field, copiedField, onCopy }) {
       onClick={e => { e.stopPropagation(); onCopy(field, value); }}
       title={`Copier ${field}`}
       style={{
-        flexShrink: 0, width: 20, height: 20, borderRadius: 4, border: 'none',
+        flexShrink: 0, width: 26, height: 26, borderRadius: 5, border: 'none',
         background: done ? 'var(--tint-mint)' : 'transparent',
         cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
         color: done ? 'var(--success)' : 'var(--steel)',
@@ -128,7 +128,7 @@ function CopyBtn({ value, field, copiedField, onCopy }) {
       onMouseEnter={e => { e.currentTarget.style.opacity = '1'; if (!done) e.currentTarget.style.background = 'var(--surface)'; }}
       onMouseLeave={e => { if (!done) { e.currentTarget.style.opacity = '0.5'; e.currentTarget.style.background = 'transparent'; } }}
     >
-      {done ? <Icon.Check s={13} c="var(--success)"/> : <Icon.Copy s={13}/>}
+      {done ? <Icon.Check s={15} c="var(--success)"/> : <Icon.Copy s={15}/>}
     </button>
   );
 }
