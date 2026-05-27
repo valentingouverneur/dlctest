@@ -9,7 +9,7 @@ import { searchPackshots } from '../lib/bingImages';
 import { supabase } from '../lib/supabase';
 
 const CATEGORIES = ['Glaces', 'Viande', 'Poisson', 'Légumes', 'Pizza', 'Plats cuisinés', 'Frites', 'Entrée'];
-const GRID = '20px 56px 1.8fr 1fr 88px 148px 118px';
+const GRID = '20px 56px 1.8fr 1fr 88px 148px 118px 32px';
 
 function copyToClipboard(text) {
   if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
@@ -106,6 +106,7 @@ function TableHeader({ allSelected, onSelectAll }) {
       {cell('Poids')}
       {cell('EAN')}
       {cell('Catégorie', { textAlign: 'right' })}
+      <div/>
     </div>
   );
 }
@@ -113,6 +114,15 @@ function TableHeader({ allSelected, onSelectAll }) {
 // ─── Table row ─────────────────────────────────────────────────────
 function TableRow({ product, selected, onSelect, checked, onToggle }) {
   const [modalSrc, setModalSrc] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e) => {
+    e.stopPropagation();
+    const parts = [product.title, product.brand, product.weight, product.ean].filter(Boolean);
+    navigator.clipboard?.writeText(parts.join('\t'));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  };
 
   const openImage = (e) => {
     e.stopPropagation();
@@ -160,6 +170,21 @@ function TableRow({ product, selected, onSelect, checked, onToggle }) {
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <Pill tone={catTone(product.category)}>{product.category || '—'}</Pill>
         </div>
+        <button
+          onClick={handleCopy}
+          title="Copier (titre · marque · poids · EAN)"
+          style={{
+            width: 28, height: 28, borderRadius: 6, border: 'none',
+            background: copied ? 'var(--tint-mint)' : 'transparent',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: copied ? 'var(--success)' : 'var(--steel)',
+            transition: 'background 0.15s, color 0.15s',
+          }}
+          onMouseEnter={e => { if (!copied) e.currentTarget.style.background = 'var(--surface)'; }}
+          onMouseLeave={e => { if (!copied) e.currentTarget.style.background = 'transparent'; }}
+        >
+          {copied ? <Icon.Check s={14} c="var(--success)"/> : <Icon.Copy s={14}/>}
+        </button>
       </div>
     </>
   );
