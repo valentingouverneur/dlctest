@@ -9,7 +9,7 @@ import { searchPackshots } from '../lib/bingImages';
 import { supabase } from '../lib/supabase';
 
 const CATEGORIES = ['Glaces', 'Viande', 'Poisson', 'Légumes', 'Pizza', 'Plats cuisinés', 'Frites', 'Entrée'];
-const GRID = '20px 56px 1.8fr 1fr 88px 148px 118px 32px';
+const GRID = '20px 56px 1.8fr 1fr 88px 148px 118px';
 
 function copyToClipboard(text) {
   if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
@@ -106,22 +106,42 @@ function TableHeader({ allSelected, onSelectAll }) {
       {cell('Poids')}
       {cell('EAN')}
       {cell('Catégorie', { textAlign: 'right' })}
-      <div/>
     </div>
   );
 }
 
 // ─── Table row ─────────────────────────────────────────────────────
+function CopyBtn({ value, field, copiedField, onCopy }) {
+  const done = copiedField === field;
+  return (
+    <button
+      onClick={e => { e.stopPropagation(); onCopy(field, value); }}
+      title={`Copier ${field}`}
+      style={{
+        flexShrink: 0, width: 20, height: 20, borderRadius: 4, border: 'none',
+        background: done ? 'var(--tint-mint)' : 'transparent',
+        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: done ? 'var(--success)' : 'var(--steel)',
+        opacity: done ? 1 : 0.5,
+        transition: 'background 0.12s, color 0.12s, opacity 0.12s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.opacity = '1'; if (!done) e.currentTarget.style.background = 'var(--surface)'; }}
+      onMouseLeave={e => { if (!done) { e.currentTarget.style.opacity = '0.5'; e.currentTarget.style.background = 'transparent'; } }}
+    >
+      {done ? <Icon.Check s={11} c="var(--success)"/> : <Icon.Copy s={11}/>}
+    </button>
+  );
+}
+
 function TableRow({ product, selected, onSelect, checked, onToggle }) {
   const [modalSrc, setModalSrc] = useState(null);
-  const [copied, setCopied] = useState(false);
+  const [copiedField, setCopiedField] = useState(null);
 
-  const handleCopy = (e) => {
-    e.stopPropagation();
-    const parts = [product.title, product.brand, product.weight, product.ean].filter(Boolean);
-    navigator.clipboard?.writeText(parts.join('\t'));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
+  const handleCopyField = (field, value) => {
+    if (!value) return;
+    navigator.clipboard?.writeText(value);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 1200);
   };
 
   const openImage = (e) => {
@@ -161,30 +181,25 @@ function TableRow({ product, selected, onSelect, checked, onToggle }) {
             size={40} radius={4} hint={false}
           />
         </div>
-        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--charcoal)', fontWeight: 450 }}>
-          {product.title}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--charcoal)', fontWeight: 450 }}>{product.title}</span>
+          <CopyBtn value={product.title} field="title" copiedField={copiedField} onCopy={handleCopyField}/>
         </div>
-        <div style={{ color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.brand}</div>
-        <div style={{ color: 'var(--slate)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>{product.weight}</div>
-        <div style={{ color: 'var(--steel)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>{product.ean}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--slate)' }}>{product.brand}</span>
+          <CopyBtn value={product.brand} field="brand" copiedField={copiedField} onCopy={handleCopyField}/>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ color: 'var(--slate)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>{product.weight}</span>
+          <CopyBtn value={product.weight} field="weight" copiedField={copiedField} onCopy={handleCopyField}/>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ color: 'var(--steel)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>{product.ean}</span>
+          <CopyBtn value={product.ean} field="ean" copiedField={copiedField} onCopy={handleCopyField}/>
+        </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <Pill tone={catTone(product.category)}>{product.category || '—'}</Pill>
         </div>
-        <button
-          onClick={handleCopy}
-          title="Copier (titre · marque · poids · EAN)"
-          style={{
-            width: 28, height: 28, borderRadius: 6, border: 'none',
-            background: copied ? 'var(--tint-mint)' : 'transparent',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: copied ? 'var(--success)' : 'var(--steel)',
-            transition: 'background 0.15s, color 0.15s',
-          }}
-          onMouseEnter={e => { if (!copied) e.currentTarget.style.background = 'var(--surface)'; }}
-          onMouseLeave={e => { if (!copied) e.currentTarget.style.background = 'transparent'; }}
-        >
-          {copied ? <Icon.Check s={14} c="var(--success)"/> : <Icon.Copy s={14}/>}
-        </button>
       </div>
     </>
   );
