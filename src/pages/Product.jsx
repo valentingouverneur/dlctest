@@ -196,7 +196,7 @@ export function Product() {
     if (!p || p.image_url || bingImageUrl || bingDismissed) return;
 
     let cancelled = false;
-    searchPackshot(p.title, p.brand)
+    searchPackshot(p.title, p.brand, p.ean)
       .then(url => { if (!cancelled && url) setBingImageUrl(url); })
       .catch(() => {});
     return () => { cancelled = true; };

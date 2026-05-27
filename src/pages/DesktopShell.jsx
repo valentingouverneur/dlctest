@@ -308,7 +308,7 @@ function DetailPanel({ product, onUpdate, onClose }) {
   const handleOpenPicker = async () => {
     setPickerLoading(true);
     setPickerPackshots([]);
-    const packshots = await searchPackshots(product.title, product.brand).catch(() => []);
+    const packshots = await searchPackshots(product.title, product.brand, 3, product.ean).catch(() => []);
     setPickerPackshots(packshots);
     setPickerLoading(false);
   };
@@ -630,7 +630,7 @@ export function DesktopShell() {
       // Fetch Bing packshots for items without images (fire-and-forget)
       products.forEach(async (p) => {
         if (p.image_url || !p.title || p.title === p.ean) return;
-        const packshots = await searchPackshots(p.title, p.brand).catch(() => []);
+        const packshots = await searchPackshots(p.title, p.brand, 3, p.ean).catch(() => []);
         if (cancelled || packshots.length === 0) return;
         setAfficheItems(prev => prev.map(it => it.ean === p.ean ? { ...it, packshots } : it));
       });
@@ -666,7 +666,7 @@ export function DesktopShell() {
 
           // Fire-and-forget Bing packshot fetch
           if (!p.image_url && p.title !== ean) {
-            searchPackshots(p.title, p.brand)
+            searchPackshots(p.title, p.brand, 3, ean)
               .then(shots => {
                 if (shots.length) {
                   setAfficheItems(prev =>

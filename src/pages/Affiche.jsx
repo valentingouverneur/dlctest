@@ -200,7 +200,7 @@ export function Affiche() {
           const titleForSearch = product?.title || entry.title;
           const brandForSearch = product?.brand || entry.brand;
           if (titleForSearch) {
-            const packshots = await searchPackshots(titleForSearch, brandForSearch).catch(() => []);
+            const packshots = await searchPackshots(titleForSearch, brandForSearch, 3, entry.ean).catch(() => []);
             setItems(prev => prev.map((it, i) =>
               i === idx ? { ...it, packshots, loadingPackshots: false } : it
             ));
@@ -226,7 +226,7 @@ export function Affiche() {
     const updatingEntry = { ...entry, loadingPackshots: true };
     setItems(prev => prev.map(it => it.ean === entry.ean ? updatingEntry : it));
 
-    const packshots = await searchPackshots(product.title, product.brand).catch(() => []);
+    const packshots = await searchPackshots(product.title, product.brand, 3, entry.ean).catch(() => []);
     const ready = { ...updatingEntry, packshots, loadingPackshots: false };
     setItems(prev => prev.map(it => it.ean === entry.ean ? ready : it));
     if (packshots.length > 0) setModal(ready);

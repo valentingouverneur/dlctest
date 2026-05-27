@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-  const { title, brand } = req.query;
+  const { title, brand, ean } = req.query;
   const key = process.env.GOOGLE_CSE_KEY;
   const cx = process.env.GOOGLE_CSE_ID;
 
@@ -7,7 +7,9 @@ export default async function handler(req, res) {
     return res.status(200).json({ images: [] });
   }
 
-  const q = [title, brand].filter(Boolean).join(' ') + ' packshot';
+  const q = ean
+    ? `${ean} emballage`
+    : [title, brand].filter(Boolean).join(' ') + ' packshot';
   const url = new URL('https://www.googleapis.com/customsearch/v1');
   url.searchParams.set('key', key);
   url.searchParams.set('cx', cx);
