@@ -5,6 +5,7 @@ import { Packshot } from '../primitives';
 import { addScan, addEanScan, getRecentWithData, getTodayCount } from '../lib/scanHistory';
 import { getProductByEan } from '../lib/products';
 import { insertScan } from '../lib/scans';
+import { DlcQuickSheet } from './DlcQuickSheet';
 
 const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'];
 
@@ -98,6 +99,7 @@ export function Scanner() {
   const batchModeRef = useRef(true);
   const loopFnRef = useRef(null);
   const mountedRef = useRef(true);
+  const toastTimeoutRef = useRef(null);
 
   // UI state
   const [supported, setSupported] = useState(null);
@@ -113,6 +115,8 @@ export function Scanner() {
   // Detection states
   const [batchMode, setBatchMode] = useState(true);
   const [batchToast, setBatchToast] = useState(null);
+  const [dlcDraft, setDlcDraft] = useState(null);
+  const [dlcSavedToast, setDlcSavedToast] = useState(null);
   const [lowConf, setLowConf] = useState(null);
   const [lastDetected, setLastDetected] = useState(null);
 
@@ -124,18 +128,41 @@ export function Scanner() {
     setBatchMode(next);
   };
 
+  const resumeScanning = () => {
+    navigatingRef.current = false;
+    if (loopFnRef.current) rafRef.current = requestAnimationFrame(loopFnRef.current);
+  };
+
+  const openDlcSheet = (product) => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setBatchToast(null);
+    setDlcDraft(product);
+  };
+
+  const closeDlcSheet = () => {
+    setDlcDraft(null);
+    resumeScanning();
+  };
+
+  const handleDlcSaved = (item) => {
+    setDlcDraft(null);
+    setDlcSavedToast(item);
+    setTimeout(() => setDlcSavedToast(null), 1800);
+    resumeScanning();
+  };
+
   async function handleDetected(ean) {
     navigatingRef.current = true;
 
     if (batchModeRef.current) {
       setScanCount(prev => prev + 1);
-      let title = ean;
+      let productForDlc = { ean, title: ean };
       try {
         const product = await getProductByEan(ean);
         insertScan(ean); // fire-and-forget to Supabase
         if (product && mountedRef.current) {
           addScan(product);
-          title = product.title;
+          productForDlc = product;
           setRecentScans(getRecentWithData(4));
         } else {
           addEanScan(ean);
@@ -144,13 +171,12 @@ export function Scanner() {
         addEanScan(ean);
       }
       if (!mountedRef.current) return;
-      setBatchToast({ ean, title });
-      setTimeout(() => {
+      setBatchToast({ ean, title: productForDlc.title || ean, product: productForDlc });
+      toastTimeoutRef.current = setTimeout(() => {
         if (!mountedRef.current) return;
         setBatchToast(null);
-        navigatingRef.current = false;
-        if (loopFnRef.current) rafRef.current = requestAnimationFrame(loopFnRef.current);
-      }, 2200);
+        resumeScanning();
+      }, 2600);
     } else {
       setLastDetected(ean);
       addEanScan(ean);
@@ -233,6 +259,7 @@ export function Scanner() {
     return () => {
       mountedRef.current = false;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
       streamRef.current?.getTracks().forEach(t => t.stop());
     };
   }, [nav]);
@@ -371,19 +398,30 @@ export function Scanner() {
               display: 'flex', justifyContent: 'center',
             }}>
               <div style={{
-                padding: '8px 16px', borderRadius: 99,
+                padding: '8px 9px 8px 14px', borderRadius: 99,
                 background: 'oklch(0.55 0.13 155)', color: 'white',
                 fontSize: 13, fontWeight: 500,
                 display: 'flex', alignItems: 'center', gap: 8,
                 boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
                 animation: 'detected-pop .35s cubic-bezier(.2,.8,.25,1)',
-                maxWidth: '80%',
+                maxWidth: '88%',
               }}>
                 <Icon.Check s={14} c="white" w={2.5}/>
                 <span style={{ fontWeight: 700 }}>+1</span>
                 <span style={{ opacity: 0.85, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {batchToast.title}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => openDlcSheet(batchToast.product)}
+                  style={{
+                    height: 26, padding: '0 9px', borderRadius: 99,
+                    border: '1px solid rgba(255,255,255,0.32)',
+                    background: 'rgba(255,255,255,0.18)', color: 'white',
+                    fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700,
+                    cursor: 'pointer', flexShrink: 0,
+                  }}
+                >DLC</button>
               </div>
             </div>
           )}
@@ -490,6 +528,25 @@ export function Scanner() {
           <div style={{ height: 16 }}/>
         </div>
       </div>
+
+      {dlcSavedToast && (
+        <div style={{
+          position: 'fixed', left: 16, right: 16, bottom: 'calc(18px + env(safe-area-inset-bottom, 0px))', zIndex: 180,
+          display: 'flex', justifyContent: 'center', pointerEvents: 'none',
+        }}>
+          <div style={{ padding: '10px 14px', borderRadius: 99, background: 'var(--primary)', color: 'white', fontSize: 13, fontWeight: 600, boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+            DLC enregistrée · {dlcSavedToast.quantity} u.
+          </div>
+        </div>
+      )}
+
+      {dlcDraft && (
+        <DlcQuickSheet
+          product={dlcDraft}
+          onClose={closeDlcSheet}
+          onSaved={handleDlcSaved}
+        />
+      )}
     </div>
   );
 }

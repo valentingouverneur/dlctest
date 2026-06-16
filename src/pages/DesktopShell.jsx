@@ -7,6 +7,7 @@ import { getTodayCount, getHistory } from '../lib/scanHistory';
 import { getRecentScans } from '../lib/scans';
 import { searchPackshots } from '../lib/bingImages';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { deleteDlcItem, getDlcItems, getDlcUrgency, updateDlcItemStatus } from '../lib/dlcItems';
 
 const CATEGORIES = ['Glaces', 'Viande', 'Poisson', 'Légumes', 'Pizza', 'Plats cuisinés', 'Frites', 'Entrée'];
 const GRID = '20px 56px 1.8fr 1fr 88px 148px 118px';
@@ -560,6 +561,71 @@ function DetailPanel({ product, onUpdate, onClose }) {
   );
 }
 
+function DlcDesktopView() {
+  const [items, setItems] = useState(() => getDlcItems());
+
+  const refresh = () => setItems(getDlcItems());
+  const setStatus = (id, status) => { updateDlcItemStatus(id, status); refresh(); };
+  const remove = (id) => { deleteDlcItem(id); refresh(); };
+
+  const urgencyMeta = (item) => {
+    const u = getDlcUrgency(item);
+    if (u === 'today') return { label: 'Aujourd’hui', bg: 'var(--tint-peach)', color: 'var(--warning)' };
+    if (u === 'tomorrow') return { label: 'Demain', bg: 'oklch(0.96 0.05 80)', color: 'oklch(0.55 0.12 70)' };
+    if (u === 'soon') return { label: 'Bientôt', bg: 'var(--tint-lavender)', color: 'var(--primary)' };
+    return { label: 'Plus tard', bg: 'var(--surface)', color: 'var(--steel)' };
+  };
+
+  if (items.length === 0) {
+    return (
+      <div style={{ padding: 48, textAlign: 'center', color: 'var(--steel)', fontSize: 13 }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>Aucune DLC enregistrée</div>
+        <div>Dans le scanner, scanne un produit puis touche le petit bouton “DLC” si besoin.</div>
+        <div style={{ marginTop: 6, color: 'var(--stone)' }}>Le scan normal reste inchangé.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 16, fontWeight: 650, color: 'var(--ink)' }}>DLC enregistrées</div>
+          <div style={{ fontSize: 12, color: 'var(--steel)', marginTop: 2 }}>{items.length} ligne{items.length > 1 ? 's' : ''} locale{items.length > 1 ? 's' : ''}</div>
+        </div>
+        <button className="btn" onClick={refresh}>Rafraîchir</button>
+      </div>
+
+      <div style={{ border: '0.5px solid var(--hairline)', borderRadius: 12, overflow: 'hidden', background: 'var(--canvas)' }}>
+        {items.map(item => {
+          const meta = urgencyMeta(item);
+          const done = item.status !== 'a_traiter';
+          return (
+            <div key={item.id} style={{
+              display: 'grid', gridTemplateColumns: '1.6fr 110px 70px 120px 180px', gap: 12,
+              alignItems: 'center', padding: '10px 12px', borderBottom: '0.5px solid var(--hairline)',
+              opacity: done ? 0.62 : 1,
+            }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 550, color: 'var(--charcoal)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</div>
+                <div className="mono" style={{ fontSize: 11, color: 'var(--stone)', marginTop: 2 }}>{item.ean}</div>
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--slate)' }}>{item.expiryDate}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--slate)' }}>{item.quantity} u.</div>
+              <div style={{ fontSize: 12, color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.zone || '—'}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+                <span style={{ padding: '4px 8px', borderRadius: 99, background: meta.bg, color: meta.color, fontSize: 11, fontWeight: 650 }}>{done ? item.status : meta.label}</span>
+                <button className="btn" onClick={() => setStatus(item.id, done ? 'a_traiter' : 'fait')} style={{ height: 28, fontSize: 12 }}>{done ? 'Rouvrir' : 'Fait'}</button>
+                <button className="btn btn-ghost" onClick={() => remove(item.id)} style={{ height: 28, width: 28, padding: 0, justifyContent: 'center' }}><Icon.Close s={12}/></button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main desktop shell ────────────────────────────────────────────
 export function DesktopShell() {
   const [activeNav, setActiveNav] = useState('affiche');
@@ -796,8 +862,9 @@ export function DesktopShell() {
   const toggleReview = () => { setNeedsReview(r => !r); setCat(null); };
   const fixCount = products.filter(p => !p.image_url).length;
 
-  const displayItems = activeNav === 'affiche' ? afficheItems : products;
-  const displayLoading = activeNav === 'affiche' ? afficheLoading : catalogueLoading;
+  const displayItems = activeNav === 'affiche' ? afficheItems : activeNav === 'dlc' ? getDlcItems() : products;
+  const displayLoading = activeNav === 'affiche' ? afficheLoading : activeNav === 'catalogue' ? catalogueLoading : false;
+  const navTitle = activeNav === 'affiche' ? 'Affiche' : activeNav === 'dlc' ? 'Calendrier DLC' : activeNav === 'settings' ? 'Paramètres' : 'Catalogue';
 
   return (
     <div className="dlc-root" style={{ height: '100vh', display: 'flex', overflow: 'hidden' }}>
@@ -813,7 +880,7 @@ export function DesktopShell() {
           background: 'var(--canvas)', flexShrink: 0,
         }}>
           <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink)' }}>
-            {activeNav === 'affiche' ? 'Affiche' : 'Catalogue'}
+            {navTitle}
           </div>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--steel)', padding: '2px 7px', background: 'var(--surface)', borderRadius: 4 }}>
             {displayLoading ? '…' : displayItems.length}
@@ -945,6 +1012,12 @@ export function DesktopShell() {
           <div style={{ flex: 1, overflowY: 'auto', background: 'var(--surface)', minWidth: 0 }}>
             {err ? (
               <div style={{ padding: 24, color: 'var(--error)', fontSize: 13 }}>{err}</div>
+            ) : activeNav === 'dlc' ? (
+              <DlcDesktopView/>
+            ) : activeNav === 'settings' ? (
+              <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--steel)', fontSize: 13 }}>
+                Paramètres à venir.
+              </div>
             ) : activeNav === 'affiche' ? (
               <>
                 <TableHeader
