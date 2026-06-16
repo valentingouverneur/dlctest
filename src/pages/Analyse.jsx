@@ -1,5 +1,6 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Icon } from '../icons';
+import { saveAnalysis, listAnalyses, getAnalysis } from '../lib/analyses';
 
 // CSV parser (client-side, no deps)
 function parseCsv(text) {
@@ -226,6 +227,69 @@ export function Analyse() {
   const [error, setError] = useState(null);
   const [fileName, setFileName] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [saving, setSaving] = useState(false);
+  const [savedId, setSavedId] = useState(null);
+  const [saveError, setSaveError] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  // Load analysis history on mount
+  useEffect(() => {
+    (async () => {
+      setHistoryLoading(true);
+      try {
+        const h = await listAnalyses();
+        setHistory(h);
+      } catch {}
+      setHistoryLoading(false);
+    })();
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    if (!stats) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const id = await saveAnalysis(fileName || 'Analyse', stats);
+      setSavedId(id);
+      setHistory(prev => [{
+        id, created_at: new Date().toISOString(),
+        file_name: fileName || 'Analyse',
+        total_ca: stats.total,
+        total_mpaf: stats.totalMpaf,
+        product_count: stats.rows,
+      }, ...prev]);
+    } catch (e) {
+      if (e.message === 'TABLE_MISSING') {
+        setSaveError('Table analyses introuvable. Va dans Supabase Dashboard > SQL Editor et crée-la (le SQL est dans la console).');
+      } else {
+        setSaveError(e.message || 'Erreur de sauvegarde');
+      }
+    }
+    setSaving(false);
+  }, [stats, fileName]);
+
+  const handleLoadAnalysis = useCallback(async (analysis) => {
+    setLoading(true);
+    try {
+      const full = await getAnalysis(analysis.id);
+      if (!full || !full.stats) {
+        setError('Impossible de charger cette analyse');
+        setLoading(false);
+        return;
+      }
+      const s = full.stats;
+      setStats(s);
+      setFileName(full.file_name);
+      setSavedId(analysis.id);
+      setShowHistory(false);
+      setActiveTab('overview');
+    } catch (e) {
+      setError('Erreur de chargement : ' + e.message);
+    }
+    setLoading(false);
+  }, []);
 
   const handleFile = useCallback(async (file) => {
     setLoading(true);
@@ -283,7 +347,7 @@ export function Analyse() {
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '10px 18px', flexShrink: 0,
         borderBottom: '0.5px solid var(--hairline)',
-        background: 'var(--canvas)',
+        background: 'var(--canvas)', position: 'relative',
       }}>
         <div style={{
           width: 26, height: 26, borderRadius: 7,
@@ -294,16 +358,91 @@ export function Analyse() {
         }}>A</div>
         <div style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>Analyse rayon</div>
         {stats && (
-          <button onClick={handleReset} className="btn btn-ghost" style={{ height: 28, fontSize: 12 }}>
-            <Icon.Close s={12}/> Nouveau fichier
-          </button>
+          <>
+            {savedId ? (
+              <span style={{ fontSize: 11, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Icon.Check s={11} c="var(--success)"/> Sauvegardée
+              </span>
+            ) : (
+              <button onClick={handleSave} disabled={saving} className="btn" style={{ height: 28, fontSize: 12 }}>
+                {saving ? <Icon.Spinner s={12} c="var(--charcoal)"/> : <Icon.Catalog s={12}/>}
+                {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+              </button>
+            )}
+            <button onClick={handleReset} className="btn btn-ghost" style={{ height: 28, fontSize: 12 }}>
+              <Icon.Close s={12}/> Nouveau fichier
+            </button>
+          </>
+        )}
+        {saveError && (
+          <div style={{ position: 'absolute', top: 48, right: 18, background: 'var(--tint-rose)', padding: '8px 12px', borderRadius: 8, fontSize: 12, color: 'var(--error)', boxShadow: 'var(--sh-2)', zIndex: 10 }}>
+            {saveError}
+          </div>
         )}
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
         {!stats && !loading && !error && (
           <div style={{ maxWidth: 420, margin: '40px auto' }}>
-            <EmptyState onFile={handleFile}/>
+            {showHistory ? (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                  <button onClick={function() { setShowHistory(false); }} className="btn btn-ghost" style={{ height: 28, padding: '0 8px', fontSize: 12 }}>
+                    <Icon.Close s={12}/> Retour
+                  </button>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>Analyses sauvegardées</div>
+                  <div style={{ flex: 1 }}/>
+                  {historyLoading && <Icon.Spinner s={14} c="var(--stone)"/>}
+                </div>
+                {history.length === 0 && !historyLoading && (
+                  <div style={{ textAlign: 'center', padding: 40, color: 'var(--steel)', fontSize: 13 }}>
+                    Aucune analyse sauvegardée pour l'instant.
+                  </div>
+                )}
+                {history.map(entry => (
+                  <div key={entry.id}
+                    onClick={function() { handleLoadAnalysis(entry); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '10px 12px', borderRadius: 8,
+                      border: '0.5px solid var(--hairline)',
+                      background: 'var(--canvas)', cursor: 'pointer',
+                      marginBottom: 6,
+                      transition: 'box-shadow 0.1s',
+                    }}
+                    onMouseEnter={function(e) { e.currentTarget.style.boxShadow = 'var(--sh-1)'; }}
+                    onMouseLeave={function(e) { e.currentTarget.style.boxShadow = 'none'; }}
+                  >
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 8,
+                      background: 'var(--tint-lavender)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <Icon.Catalog s={14} c="var(--primary)"/>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {entry.file_name || 'Analyse'}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--steel)', marginTop: 1 }}>
+                        {new Date(entry.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        {' · ' + money(entry.total_ca) + ' CA · ' + entry.product_count + ' réf.'}
+                      </div>
+                    </div>
+                    <Icon.ChevronRight s={13} c="var(--stone)"/>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <>
+                <EmptyState onFile={handleFile}/>
+                <div style={{ textAlign: 'center', marginTop: 12 }}>
+                  <button onClick={function() { setShowHistory(true); }} className="btn btn-ghost" style={{ height: 28, fontSize: 12 }}>
+                    <Icon.Calendar s={12}/> Analyses sauvegardées ({history.length})
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
