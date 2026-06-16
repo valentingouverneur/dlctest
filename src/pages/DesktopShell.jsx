@@ -6,7 +6,7 @@ import { fetchFromOFF } from '../lib/openFoodFacts';
 import { getTodayCount, getHistory } from '../lib/scanHistory';
 import { getRecentScans } from '../lib/scans';
 import { searchPackshots } from '../lib/bingImages';
-import { supabase } from '../lib/supabase';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
 const CATEGORIES = ['Glaces', 'Viande', 'Poisson', 'Légumes', 'Pizza', 'Plats cuisinés', 'Frites', 'Entrée'];
 const GRID = '20px 56px 1.8fr 1fr 88px 148px 118px';
@@ -684,6 +684,7 @@ export function DesktopShell() {
   // Realtime: prepend new scans as they arrive
   useEffect(() => {
     if (activeNav !== 'affiche') return;
+    if (!isSupabaseConfigured || !supabase) return;
 
     const channel = supabase
       .channel('scans-realtime')

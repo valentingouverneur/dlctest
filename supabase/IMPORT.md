@@ -1,12 +1,22 @@
 # Supabase setup
 
+Project: https://supabase.com/dashboard/project/djocdpalpdlauslilxwh
+
 ## 1. Run the schema
 
 1. Go to your Supabase project → **SQL Editor** → **New query**
 2. Paste the content of `schema.sql`
 3. Click **Run**
 
-This creates the `products` table with public read access.
+This creates/updates:
+
+- `products` catalogue table
+- `scans` scan-history table
+- indexes used by catalogue/search/history
+- RLS policies for the current no-login internal app
+- Realtime publication for `scans`, used by the desktop view
+
+> The current app is public/no-login. The schema intentionally allows `anon` to read/write the internal catalogue and insert scans. Tighten these policies when user accounts/roles are added.
 
 ## 2. Import the CSV
 
@@ -46,6 +56,7 @@ In SQL Editor, run:
 
 ```sql
 select count(*) from products;
+select count(*) from scans;
 ```
 
-Should return ~1703.
+The current project has hundreds of products and existing scan history. The app should show the catalogue without console errors.

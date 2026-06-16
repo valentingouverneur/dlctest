@@ -1,6 +1,7 @@
-import { supabase } from './supabase';
+import { requireSupabase } from './supabase';
 
 export async function getProductByEan(ean) {
+  const supabase = requireSupabase();
   const { data, error } = await supabase
     .from('products')
     .select('*')
@@ -11,6 +12,7 @@ export async function getProductByEan(ean) {
 }
 
 export async function searchProducts({ query = '', category = null, needsReview = false, limit = 50 } = {}) {
+  const supabase = requireSupabase();
   let q = supabase.from('products').select('*').order('title', { ascending: true }).limit(limit);
   if (query) {
     const safe = query.replace(/[%,]/g, '');
@@ -28,6 +30,7 @@ export async function searchProducts({ query = '', category = null, needsReview 
 }
 
 export async function createProduct(product) {
+  const supabase = requireSupabase();
   const allowed = ['ean', 'title', 'brand', 'weight', 'category', 'image_url'];
   const payload = Object.fromEntries(
     Object.entries(product).filter(([k]) => allowed.includes(k))
@@ -42,6 +45,7 @@ export async function createProduct(product) {
 }
 
 export async function updateProduct(ean, updates) {
+  const supabase = requireSupabase();
   const allowed = ['title', 'brand', 'weight', 'category', 'image_url'];
   const payload = Object.fromEntries(
     Object.entries(updates).filter(([k]) => allowed.includes(k))
@@ -57,11 +61,13 @@ export async function updateProduct(ean, updates) {
 }
 
 export async function deleteProduct(ean) {
+  const supabase = requireSupabase();
   const { error } = await supabase.from('products').delete().eq('ean', ean);
   if (error) throw error;
 }
 
 export async function listCategories() {
+  const supabase = requireSupabase();
   const { data, error } = await supabase
     .from('products')
     .select('category')
