@@ -3,6 +3,11 @@ import { isSupabaseConfigured, requireSupabase } from './supabase';
 const KEY = 'dlc_items';
 const MAX = 200;
 const VALID_STATUSES = new Set(['a_traiter', 'fait', 'retire']);
+let lastDlcSyncError = null;
+
+export function getLastDlcSyncError() {
+  return lastDlcSyncError;
+}
 
 function makeId() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
@@ -122,9 +127,11 @@ export async function getDlcItemsAsync(limit = MAX) {
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) {
+    lastDlcSyncError = error.message;
     console.warn('dlc_items select:', error.message);
     return getDlcItems();
   }
+  lastDlcSyncError = null;
   const items = (data ?? []).map(fromDb);
   saveAll(items);
   return items;
@@ -142,9 +149,11 @@ export async function saveDlcItem(input) {
     .select('*')
     .single();
   if (error) {
+    lastDlcSyncError = error.message;
     console.warn('dlc_items upsert:', error.message);
     return { ...item, syncError: error.message };
   }
+  lastDlcSyncError = null;
   return replaceLocal(fromDb(data));
 }
 
@@ -162,9 +171,11 @@ export async function updateDlcItemStatus(id, status) {
     .select('*')
     .single();
   if (error) {
+    lastDlcSyncError = error.message;
     console.warn('dlc_items update:', error.message);
     return local.find(item => item.id === id) || null;
   }
+  lastDlcSyncError = null;
   return replaceLocal(fromDb(data));
 }
 
@@ -175,7 +186,12 @@ export async function deleteDlcItem(id) {
   if (isSupabaseConfigured) {
     const supabase = requireSupabase();
     const { error } = await supabase.from('dlc_items').delete().eq('id', id);
-    if (error) console.warn('dlc_items delete:', error.message);
+    if (error) {
+      lastDlcSyncError = error.message;
+      console.warn('dlc_items delete:', error.message);
+    } else {
+      lastDlcSyncError = null;
+    }
   }
   return local;
 }

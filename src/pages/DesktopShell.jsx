@@ -7,7 +7,7 @@ import { getTodayCount, getHistory } from '../lib/scanHistory';
 import { getRecentScans } from '../lib/scans';
 import { searchPackshots } from '../lib/bingImages';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
-import { deleteDlcItem, getDlcItems, getDlcItemsAsync, getDlcUrgency, updateDlcItemStatus } from '../lib/dlcItems';
+import { deleteDlcItem, getDlcItems, getDlcItemsAsync, getDlcUrgency, getLastDlcSyncError, updateDlcItemStatus } from '../lib/dlcItems';
 
 const CATEGORIES = ['Glaces', 'Viande', 'Poisson', 'Légumes', 'Pizza', 'Plats cuisinés', 'Frites', 'Entrée'];
 const GRID = '20px 56px 1.8fr 1fr 88px 148px 118px';
@@ -564,11 +564,13 @@ function DetailPanel({ product, onUpdate, onClose }) {
 function DlcDesktopView() {
   const [items, setItems] = useState(() => getDlcItems());
   const [loading, setLoading] = useState(false);
+  const [syncError, setSyncError] = useState(null);
 
   const refresh = async () => {
     setLoading(true);
     try {
       setItems(await getDlcItemsAsync());
+      setSyncError(getLastDlcSyncError());
     } finally {
       setLoading(false);
     }
@@ -598,6 +600,11 @@ function DlcDesktopView() {
       <div style={{ padding: 48, textAlign: 'center', color: 'var(--steel)', fontSize: 13 }}>
         <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>{loading ? 'Chargement des DLC…' : 'Aucune DLC enregistrée'}</div>
         {!loading && <>
+          {syncError && (
+            <div style={{ margin: '0 auto 12px', maxWidth: 520, padding: '10px 12px', borderRadius: 10, background: 'var(--tint-peach)', color: 'var(--warning)' }}>
+              Synchro Supabase indisponible : lance le schema SQL pour créer <span className="mono">dlc_items</span>.
+            </div>
+          )}
           <div>Dans le scanner, scanne un produit puis touche le petit bouton “DLC” si besoin.</div>
           <div style={{ marginTop: 6, color: 'var(--stone)' }}>Le scan normal reste inchangé. Les lignes sont synchronisées via Supabase.</div>
         </>}
@@ -610,7 +617,7 @@ function DlcDesktopView() {
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 16, fontWeight: 650, color: 'var(--ink)' }}>DLC enregistrées</div>
-          <div style={{ fontSize: 12, color: 'var(--steel)', marginTop: 2 }}>{items.length} ligne{items.length > 1 ? 's' : ''} synchronisée{items.length > 1 ? 's' : ''} Supabase</div>
+          <div style={{ fontSize: 12, color: syncError ? 'var(--warning)' : 'var(--steel)', marginTop: 2 }}>{syncError ? 'Mode local : synchro Supabase indisponible' : `${items.length} ligne${items.length > 1 ? 's' : ''} synchronisée${items.length > 1 ? 's' : ''} Supabase`}</div>
         </div>
         <button className="btn" onClick={refresh} disabled={loading}>{loading ? 'Synchro…' : 'Rafraîchir'}</button>
       </div>
