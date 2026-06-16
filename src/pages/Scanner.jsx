@@ -4,6 +4,7 @@ import { Icon } from '../icons';
 import { Packshot } from '../primitives';
 import { addScan, addEanScan, getRecentWithData, getTodayCount } from '../lib/scanHistory';
 import { getProductByEan } from '../lib/products';
+import { fetchFromOFF } from '../lib/openFoodFacts';
 import { insertScan } from '../lib/scans';
 import { DlcQuickSheet } from './DlcQuickSheet';
 
@@ -165,7 +166,14 @@ export function Scanner() {
           productForDlc = product;
           setRecentScans(getRecentWithData(4));
         } else {
-          addEanScan(ean);
+          const offProduct = await fetchFromOFF(ean);
+          if (offProduct && mountedRef.current) {
+            addScan(offProduct);
+            productForDlc = offProduct;
+            setRecentScans(getRecentWithData(4));
+          } else {
+            addEanScan(ean);
+          }
         }
       } catch {
         addEanScan(ean);

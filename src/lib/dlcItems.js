@@ -179,6 +179,33 @@ export async function updateDlcItemStatus(id, status) {
   return replaceLocal(fromDb(data));
 }
 
+export async function updateDlcItemDetails(id, updates) {
+  const allowed = ['title', 'brand', 'weight', 'category', 'image_url'];
+  const payload = Object.fromEntries(
+    Object.entries(updates).filter(([key, value]) => allowed.includes(key) && value !== undefined)
+  );
+  if (Object.keys(payload).length === 0) return readLocal().find(item => item.id === id) || null;
+
+  const local = readLocal().map(item => item.id === id ? { ...item, ...payload, updatedAt: Date.now() } : item);
+  saveAll(local);
+
+  if (!isSupabaseConfigured) return local.find(item => item.id === id) || null;
+  const supabase = requireSupabase();
+  const { data, error } = await supabase
+    .from('dlc_items')
+    .update(payload)
+    .eq('id', id)
+    .select('*')
+    .single();
+  if (error) {
+    lastDlcSyncError = error.message;
+    console.warn('dlc_items detail update:', error.message);
+    return local.find(item => item.id === id) || null;
+  }
+  lastDlcSyncError = null;
+  return replaceLocal(fromDb(data));
+}
+
 export async function deleteDlcItem(id) {
   const local = readLocal().filter(item => item.id !== id);
   saveAll(local);
