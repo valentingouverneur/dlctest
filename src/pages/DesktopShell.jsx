@@ -8,6 +8,7 @@ import { getRecentScans } from '../lib/scans';
 import { searchPackshots } from '../lib/bingImages';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { deleteDlcItem, getDlcItems, getDlcItemsAsync, getDlcUrgency, getLastDlcSyncError, updateDlcItemDetails, updateDlcItemStatus } from '../lib/dlcItems';
+import { Analyse } from './Analyse';
 
 const CATEGORIES = ['Glaces', 'Viande', 'Poisson', 'Légumes', 'Pizza', 'Plats cuisinés', 'Frites', 'Entrée'];
 const GRID = '20px 56px 1.8fr 1fr 88px 148px 118px';
@@ -60,6 +61,7 @@ function DesktopSidebar({ activeNav, onNav, scanCount }) {
         <SideItem icon={<Icon.Image s={16}/>} label="Affiche" active={activeNav === 'affiche'} onClick={() => onNav('affiche')}/>
         <SideItem icon={<Icon.Catalog s={16}/>} label="Catalogue" active={activeNav === 'catalogue'} onClick={() => onNav('catalogue')}/>
         <SideItem icon={<Icon.Calendar s={16}/>} label="Calendrier DLC" active={activeNav === 'dlc'} onClick={() => onNav('dlc')}/>
+        <SideItem icon={<Icon.Catalog s={16}/>} label="Analyse rayon" active={activeNav === 'analyse'} onClick={() => onNav('analyse')}/>
         <SideItem icon={<Icon.Settings s={16}/>} label="Paramètres" active={activeNav === 'settings'} onClick={() => onNav('settings')}/>
       </div>
 
@@ -927,7 +929,7 @@ export function DesktopShell() {
 
   const displayItems = activeNav === 'affiche' ? afficheItems : activeNav === 'dlc' ? getDlcItems() : products;
   const displayLoading = activeNav === 'affiche' ? afficheLoading : activeNav === 'catalogue' ? catalogueLoading : false;
-  const navTitle = activeNav === 'affiche' ? 'Affiche' : activeNav === 'dlc' ? 'Calendrier DLC' : activeNav === 'settings' ? 'Paramètres' : 'Catalogue';
+  const navTitle = activeNav === 'affiche' ? 'Affiche' : activeNav === 'dlc' ? 'Calendrier DLC' : activeNav === 'analyse' ? 'Analyse rayon' : activeNav === 'settings' ? 'Paramètres' : 'Catalogue';
 
   return (
     <div className="dlc-root" style={{ height: '100vh', display: 'flex', overflow: 'hidden' }}>
@@ -1081,6 +1083,8 @@ export function DesktopShell() {
               <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--steel)', fontSize: 13 }}>
                 Paramètres à venir.
               </div>
+            ) : activeNav === 'analyse' ? (
+              <Analyse/>
             ) : activeNav === 'affiche' ? (
               <>
                 <TableHeader
