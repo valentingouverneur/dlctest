@@ -13,6 +13,16 @@ function mapCategory(tags) {
   return null;
 }
 
+function getImageUrl(product) {
+  return product.image_front_url
+    || product.image_url
+    || product.selected_images?.front?.display?.fr
+    || product.selected_images?.front?.display?.en
+    || product.selected_images?.front?.small?.fr
+    || product.selected_images?.front?.small?.en
+    || null;
+}
+
 export default async function handler(req, res) {
   const { ean } = req.query;
   if (!ean || !/^\d{8,13}$/.test(ean)) {
@@ -40,7 +50,7 @@ export default async function handler(req, res) {
       title,
       brand: p.brands ? p.brands.split(',')[0].trim() : null,
       weight: p.quantity || null,
-      image_url: null,
+      image_url: getImageUrl(p),
       category: mapCategory(p.categories_tags),
       source: 'openfoodfacts',
     });
