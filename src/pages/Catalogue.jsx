@@ -99,7 +99,7 @@ export function Catalogue() {
     <div className="app-shell">
       {/* Header */}
       <header style={{
-        position: 'sticky', top: 0, zIndex: 10,
+        position: 'sticky', top: 48, zIndex: 10,
         background: 'var(--canvas)',
         borderBottom: '0.5px solid var(--line)',
         padding: '12px 16px 10px',
@@ -198,7 +198,7 @@ export function Catalogue() {
       </header>
 
       {/* List */}
-      <main style={{ flex: 1, paddingBottom: 80 }}>
+      <main style={{ flex: 1, paddingBottom: 24 }}>
         {needsReview && (
           <div style={{
             margin: '12px 16px 0',

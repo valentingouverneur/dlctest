@@ -258,7 +258,7 @@ export function Affiche() {
   return (
     <div className="app-shell">
       <header style={{
-        position: 'sticky', top: 0, zIndex: 10,
+        position: 'sticky', top: 48, zIndex: 10,
         background: 'var(--canvas)',
         borderBottom: '0.5px solid var(--line)',
         padding: '12px 16px 0',
@@ -272,7 +272,7 @@ export function Affiche() {
 
       </header>
 
-      <main style={{ flex: 1, paddingBottom: 80 }}>
+      <main style={{ flex: 1, paddingBottom: 24 }}>
         {items.length === 0 ? (
           <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--ink-4)', fontSize: 14, lineHeight: 1.6 }}>
             Aucun scan enregistré.
