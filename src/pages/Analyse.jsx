@@ -40,6 +40,28 @@ function parseCsv(text) {
 function money(v) { return v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' \u20AC'; }
 function num(v) { return v.toLocaleString('fr-FR'); }
 
+function copyEan(ean, e) {
+  e.stopPropagation();
+  navigator.clipboard?.writeText(ean).catch(function(){});
+}
+
+function EanRender(v, row) {
+  return React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4, maxWidth: '100%' } },
+    React.createElement('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--steel)' } }, v),
+    React.createElement('button', {
+      onClick: function(e) { copyEan(v, e); },
+      style: { flexShrink: 0, width: 18, height: 18, borderRadius: 3, border: 'none', background: 'transparent', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--stone)', opacity: 0.5, padding: 0 },
+      onMouseEnter: function(e) { e.currentTarget.style.opacity = '1'; },
+      onMouseLeave: function(e) { e.currentTarget.style.opacity = '0.5'; },
+      title: 'Copier EAN'
+    },
+    React.createElement(Icon.Copy, { s: 9 })
+    )
+  );
+}
+
+var eanCol = { key: 'ean', label: 'EAN', width: '115px', mono: true, render: EanRender };
+
 function riskScore(p) {
   if (p.uvc === 0) return -Infinity;
   return (p.ca_ttc / p.uvc) * (p.mpaf_ht_pct / 100);
@@ -504,7 +526,8 @@ export function Analyse() {
                     <MiniTable compact columns={[
                       { key: '#', label: '#', width: '24px', align: 'right' },
                       { key: 'designation', label: 'Produit' },
-                      { key: 'ca_ttc', label: 'CA TTC', width: '100px', align: 'right', mono: true, render: v => money(v) },
+                    eanCol,
+                    { key: 'ca_ttc', label: 'CA TTC', width: '100px', align: 'right', mono: true, render: v => money(v) },
                       { key: 'mpaf_ht_pct', label: 'Marge', width: '70px', align: 'right', render: v => v + '%' },
                       { key: 'freq', label: 'Fréq.', width: '55px', align: 'right' },
                     ]} rows={stats.stars.map((r, i) => ({ ...r, '#': i + 1 }))}/>
@@ -516,6 +539,7 @@ export function Analyse() {
                     <MiniTable compact columns={[
                       { key: '#', label: '#', width: '24px', align: 'right' },
                       { key: 'designation', label: 'Produit' },
+                      eanCol,
                       { key: 'ca_ttc', label: 'CA TTC', width: '90px', align: 'right', mono: true, render: v => money(v) },
                       { key: 'uvc', label: 'UVC', width: '55px', align: 'right' },
                       { key: 'mpaf_ht_pct', label: 'Marge', width: '65px', align: 'right', render: v => v + '%' },
@@ -528,6 +552,7 @@ export function Analyse() {
                     <MiniTable compact columns={[
                       { key: '#', label: '#', width: '24px', align: 'right' },
                       { key: 'designation', label: 'Produit' },
+                    eanCol,
                       { key: 'casse_paf', label: 'Pertes €', width: '90px', align: 'right', mono: true, render: v => money(v) },
                       { key: 'casse_uvc', label: 'U.', width: '40px', align: 'right' },
                       { key: 'ca_ttc', label: 'CA TTC', width: '90px', align: 'right', mono: true, render: v => money(v) },
@@ -556,6 +581,7 @@ export function Analyse() {
                   <MiniTable columns={[
                     { key: '#', label: '#', width: '30px', align: 'right' },
                     { key: 'designation', label: 'Produit' },
+                    eanCol,
                     { key: 'ca_ttc', label: 'CA TTC', width: '110px', align: 'right', mono: true, render: v => money(v) },
                     { key: 'mpaf_ht_pct', label: 'Marge %', width: '75px', align: 'right', render: v => v + '%' },
                     { key: 'mpaf', label: 'MPAF €', width: '100px', align: 'right', mono: true, render: v => money(v) },
@@ -567,6 +593,7 @@ export function Analyse() {
                   <MiniTable columns={[
                     { key: '#', label: '#', width: '30px', align: 'right' },
                     { key: 'designation', label: 'Produit' },
+                    eanCol,
                     { key: 'mpaf', label: 'MPAF €', width: '110px', align: 'right', mono: true, render: v => money(v) },
                     { key: 'mpaf_ht_pct', label: 'Marge %', width: '75px', align: 'right', render: v => v + '%' },
                     { key: 'ca_ttc', label: 'CA TTC', width: '110px', align: 'right', mono: true, render: v => money(v) },
@@ -577,6 +604,7 @@ export function Analyse() {
                   <MiniTable columns={[
                     { key: '#', label: '#', width: '30px', align: 'right' },
                     { key: 'designation', label: 'Produit' },
+                    eanCol,
                     { key: '_score', label: 'Score', width: '100px', align: 'right', mono: true, render: (_, r) => num(Math.round(efficiency(r))) },
                     { key: 'ca_ttc', label: 'CA TTC', width: '110px', align: 'right', mono: true, render: v => money(v) },
                     { key: 'mpaf_ht_pct', label: 'Marge %', width: '75px', align: 'right', render: v => v + '%' },
@@ -591,6 +619,7 @@ export function Analyse() {
                 <MiniTable columns={[
                   { key: '#', label: '#', width: '30px', align: 'right' },
                   { key: 'designation', label: 'Produit' },
+                  eanCol,
                   { key: 'ca_ttc', label: 'CA TTC', width: '110px', align: 'right', mono: true, render: v => money(v) },
                   { key: 'mpaf_ht_pct', label: 'Marge %', width: '70px', align: 'right', render: v => v + '%' },
                   { key: 'mpaf', label: 'MPAF €', width: '100px', align: 'right', mono: true, render: v => money(v) },
@@ -604,6 +633,7 @@ export function Analyse() {
                 <MiniTable columns={[
                   { key: '#', label: '#', width: '30px', align: 'right' },
                   { key: 'designation', label: 'Produit' },
+                  eanCol,
                   { key: 'ca_ttc', label: 'CA TTC', width: '100px', align: 'right', mono: true, render: v => money(v) },
                   { key: 'uvc', label: 'UVC', width: '55px', align: 'right' },
                   { key: 'mpaf_ht_pct', label: 'Marge %', width: '70px', align: 'right', render: v => v + '%' },
@@ -618,6 +648,7 @@ export function Analyse() {
                 <MiniTable columns={[
                   { key: '#', label: '#', width: '30px', align: 'right' },
                   { key: 'designation', label: 'Produit' },
+                  eanCol,
                   { key: 'casse_paf', label: 'Pertes €', width: '100px', align: 'right', mono: true, render: v => money(v) },
                   { key: 'casse_uvc', label: 'Unités', width: '60px', align: 'right' },
                   { key: 'ca_ttc', label: 'CA TTC', width: '100px', align: 'right', mono: true, render: v => money(v) },
