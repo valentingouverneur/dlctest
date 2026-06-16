@@ -18,6 +18,8 @@ export function DlcQuickSheet({ product, onClose, onSaved }) {
   const [quantity, setQuantity] = useState(1);
   const [zone, setZone] = useState(product?.category || 'Surgelés');
   const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
 
   const title = product?.title || product?.ean || 'Produit';
   const quickDates = useMemo(() => [
@@ -27,17 +29,29 @@ export function DlcQuickSheet({ product, onClose, onSaved }) {
     ['+3', addDaysIso(3)],
   ], []);
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault();
-    if (!product?.ean || !expiryDate) return;
-    const saved = saveDlcItem({
-      ...product,
-      expiryDate,
-      quantity,
-      zone: zone.trim(),
-      note: note.trim(),
-    });
-    onSaved?.(saved);
+    if (!product?.ean || !expiryDate || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const saved = await saveDlcItem({
+        ...product,
+        expiryDate,
+        quantity,
+        zone: zone.trim(),
+        note: note.trim(),
+      });
+      if (saved.syncError) {
+        setError('Enregistré sur cet appareil seulement : table Supabase dlc_items indisponible.');
+        return;
+      }
+      onSaved?.(saved);
+    } catch (err) {
+      setError(err.message || 'Erreur enregistrement DLC');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -118,10 +132,12 @@ export function DlcQuickSheet({ product, onClose, onSaved }) {
 
         <input value={note} onChange={e => setNote(e.target.value)} placeholder="Note optionnelle" style={{ width: '100%', height: 40, border: '1px solid var(--hairline-strong)', borderRadius: 10, padding: '0 12px', fontFamily: 'inherit', fontSize: 14, outline: 'none', marginBottom: 14 }}/>
 
+        {error && <div style={{ fontSize: 12, color: 'var(--warning)', marginBottom: 10 }}>{error}</div>}
+
         <div style={{ display: 'flex', gap: 8 }}>
-          <button type="button" onClick={onClose} className="btn" style={{ flex: 1, height: 42 }}>Annuler</button>
-          <button type="submit" className="btn btn-primary" style={{ flex: 2, height: 42 }}>
-            Enregistrer DLC
+          <button type="button" onClick={onClose} disabled={saving} className="btn" style={{ flex: 1, height: 42 }}>Annuler</button>
+          <button type="submit" disabled={saving} className="btn btn-primary" style={{ flex: 2, height: 42 }}>
+            {saving ? 'Enregistrement…' : 'Enregistrer DLC'}
           </button>
         </div>
       </form>

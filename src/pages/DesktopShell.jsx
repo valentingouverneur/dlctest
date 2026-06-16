@@ -7,7 +7,7 @@ import { getTodayCount, getHistory } from '../lib/scanHistory';
 import { getRecentScans } from '../lib/scans';
 import { searchPackshots } from '../lib/bingImages';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
-import { deleteDlcItem, getDlcItems, getDlcUrgency, updateDlcItemStatus } from '../lib/dlcItems';
+import { deleteDlcItem, getDlcItems, getDlcItemsAsync, getDlcUrgency, updateDlcItemStatus } from '../lib/dlcItems';
 
 const CATEGORIES = ['Glaces', 'Viande', 'Poisson', 'Légumes', 'Pizza', 'Plats cuisinés', 'Frites', 'Entrée'];
 const GRID = '20px 56px 1.8fr 1fr 88px 148px 118px';
@@ -563,10 +563,27 @@ function DetailPanel({ product, onUpdate, onClose }) {
 
 function DlcDesktopView() {
   const [items, setItems] = useState(() => getDlcItems());
+  const [loading, setLoading] = useState(false);
 
-  const refresh = () => setItems(getDlcItems());
-  const setStatus = (id, status) => { updateDlcItemStatus(id, status); refresh(); };
-  const remove = (id) => { deleteDlcItem(id); refresh(); };
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      setItems(await getDlcItemsAsync());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { refresh(); }, []);
+
+  const setStatus = async (id, status) => {
+    await updateDlcItemStatus(id, status);
+    refresh();
+  };
+  const remove = async (id) => {
+    await deleteDlcItem(id);
+    refresh();
+  };
 
   const urgencyMeta = (item) => {
     const u = getDlcUrgency(item);
@@ -579,9 +596,11 @@ function DlcDesktopView() {
   if (items.length === 0) {
     return (
       <div style={{ padding: 48, textAlign: 'center', color: 'var(--steel)', fontSize: 13 }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>Aucune DLC enregistrée</div>
-        <div>Dans le scanner, scanne un produit puis touche le petit bouton “DLC” si besoin.</div>
-        <div style={{ marginTop: 6, color: 'var(--stone)' }}>Le scan normal reste inchangé.</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>{loading ? 'Chargement des DLC…' : 'Aucune DLC enregistrée'}</div>
+        {!loading && <>
+          <div>Dans le scanner, scanne un produit puis touche le petit bouton “DLC” si besoin.</div>
+          <div style={{ marginTop: 6, color: 'var(--stone)' }}>Le scan normal reste inchangé. Les lignes sont synchronisées via Supabase.</div>
+        </>}
       </div>
     );
   }
@@ -591,9 +610,9 @@ function DlcDesktopView() {
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 16, fontWeight: 650, color: 'var(--ink)' }}>DLC enregistrées</div>
-          <div style={{ fontSize: 12, color: 'var(--steel)', marginTop: 2 }}>{items.length} ligne{items.length > 1 ? 's' : ''} locale{items.length > 1 ? 's' : ''}</div>
+          <div style={{ fontSize: 12, color: 'var(--steel)', marginTop: 2 }}>{items.length} ligne{items.length > 1 ? 's' : ''} synchronisée{items.length > 1 ? 's' : ''} Supabase</div>
         </div>
-        <button className="btn" onClick={refresh}>Rafraîchir</button>
+        <button className="btn" onClick={refresh} disabled={loading}>{loading ? 'Synchro…' : 'Rafraîchir'}</button>
       </div>
 
       <div style={{ border: '0.5px solid var(--hairline)', borderRadius: 12, overflow: 'hidden', background: 'var(--canvas)' }}>

@@ -12,9 +12,10 @@ This creates/updates:
 
 - `products` catalogue table
 - `scans` scan-history table
+- `dlc_items` table for optional DLC lines synced phone ↔ desktop
 - indexes used by catalogue/search/history
 - RLS policies for the current no-login internal app
-- Realtime publication for `scans`, used by the desktop view
+- Realtime publication for `scans` and `dlc_items`, used by the desktop view
 
 > The current app is public/no-login. The schema intentionally allows `anon` to read/write the internal catalogue and insert scans. Tighten these policies when user accounts/roles are added.
 
@@ -57,6 +58,7 @@ In SQL Editor, run:
 ```sql
 select count(*) from products;
 select count(*) from scans;
+select count(*) from dlc_items;
 ```
 
-The current project has hundreds of products and existing scan history. The app should show the catalogue without console errors.
+The current project has hundreds of products and existing scan history. The app should show the catalogue and the Calendrier DLC page without console errors.
