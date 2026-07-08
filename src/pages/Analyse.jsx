@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Icon } from '../icons';
 import { saveAnalysis, listAnalyses, getAnalysis } from '../lib/analyses';
+import { useIsDesktop } from '../hooks/useIsDesktop';
 
 // CSV parser (client-side, no deps)
 function parseCsv(text) {
@@ -246,6 +247,7 @@ function LoadingState({ message }) {
 }
 
 export function Analyse({ onSelectEan } = {}) {
+  const isDesktop = useIsDesktop();
   const rowClick = onSelectEan ? (row => onSelectEan(row.ean)) : undefined;
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -367,14 +369,18 @@ export function Analyse({ onSelectEan } = {}) {
 
   return (
     <div style={{
-      flex: 1, display: 'flex', flexDirection: 'column',
-      overflow: 'hidden', background: 'var(--surface)',
+      flex: isDesktop ? 1 : 'none', display: 'flex', flexDirection: 'column',
+      overflow: isDesktop ? 'hidden' : 'visible',
+      minHeight: isDesktop ? 'auto' : '100vh',
+      background: 'var(--surface)',
     }}>
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '10px 18px', flexShrink: 0,
         borderBottom: '0.5px solid var(--hairline)',
-        background: 'var(--canvas)', position: 'relative',
+        background: 'var(--canvas)',
+        position: isDesktop ? 'relative' : 'sticky',
+        top: isDesktop ? 'auto' : 48, zIndex: 10,
       }}>
         <div style={{
           width: 26, height: 26, borderRadius: 7,
@@ -408,7 +414,7 @@ export function Analyse({ onSelectEan } = {}) {
         )}
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+      <div style={{ flex: 1, overflowY: isDesktop ? 'auto' : 'visible', padding: isDesktop ? 20 : 16 }}>
         {!stats && !loading && !error && (
           <div style={{ maxWidth: 420, margin: '40px auto' }}>
             {showHistory ? (

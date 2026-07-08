@@ -68,6 +68,11 @@ const Icon = {
       <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/>
     </svg>
   ),
+  BarChart: ({ s = 18, c = 'currentColor', w = 1.5 }) => (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20V10M12 20V4M20 20v-7"/>
+    </svg>
+  ),
   Settings: ({ s = 18, c = 'currentColor', w = 1.5 }) => (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3"/>
