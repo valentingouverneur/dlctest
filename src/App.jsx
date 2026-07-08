@@ -138,7 +138,7 @@ function ScanFab() {
 
 // ─── App ─────────────────────────────────────────────────────────────
 export function App() {
-  const isDesktop = useIsDesktop(1024);
+  const isDesktop = useIsDesktop(768);
 
   if (isDesktop) {
     return <DesktopShell/>;

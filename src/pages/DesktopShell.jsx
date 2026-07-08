@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useIsDesktop } from '../hooks/useIsDesktop';
 import { Packshot, CopyField, SideItem, Pill, ImageModal } from '../primitives';
 import { Icon } from '../icons';
 import { searchProducts, getProductByEan, updateProduct, createProduct, deleteProduct } from '../lib/products';
@@ -299,7 +300,10 @@ function EditField({ label, value, onChange, mono = false, readOnly = false }) {
 }
 
 // ─── Detail panel ──────────────────────────────────────────────────
-function DetailPanel({ product, onUpdate, onClose }) {
+function DetailPanel({ product, onUpdate, onClose, overlay }) {
+  const panelFrame = overlay
+    ? { position: 'fixed', top: 0, right: 0, bottom: 0, width: 'min(380px, 92vw)', zIndex: 60, boxShadow: 'var(--sh-3)' }
+    : { width: 380, flexShrink: 0, borderLeft: '0.5px solid var(--hairline)' };
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -375,8 +379,7 @@ function DetailPanel({ product, onUpdate, onClose }) {
   if (!product) {
     return (
       <div style={{
-        width: 380, flexShrink: 0,
-        borderLeft: '0.5px solid var(--hairline)',
+        ...panelFrame,
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         padding: 32, color: 'var(--steel)', fontSize: 13,
         background: 'var(--canvas)', textAlign: 'center', lineHeight: 1.6,
@@ -397,8 +400,7 @@ function DetailPanel({ product, onUpdate, onClose }) {
   if (product.notFound) {
     return (
       <div style={{
-        width: 380, flexShrink: 0,
-        borderLeft: '0.5px solid var(--hairline)',
+        ...panelFrame,
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         padding: 32, background: 'var(--canvas)', textAlign: 'center',
       }}>
@@ -416,8 +418,7 @@ function DetailPanel({ product, onUpdate, onClose }) {
 
   return (
     <div style={{
-      width: 380, flexShrink: 0,
-      borderLeft: '0.5px solid var(--hairline)',
+      ...panelFrame,
       display: 'flex', flexDirection: 'column',
       background: 'var(--surface)', overflow: 'hidden',
     }}>
@@ -695,6 +696,7 @@ function DlcDesktopView() {
 
 // ─── Main desktop shell ────────────────────────────────────────────
 export function DesktopShell() {
+  const showPanelAsColumn = useIsDesktop(1024);
   const [activeNav, setActiveNav] = useState('affiche');
 
   // Catalogue state
@@ -1140,13 +1142,22 @@ export function DesktopShell() {
             )}
           </div>
 
-          {/* Detail panel */}
-          {activeNav !== 'heures' && (
-            <DetailPanel
-              product={selectedProduct}
-              onUpdate={handleUpdate}
-              onClose={() => setSelectedProduct(null)}
-            />
+          {/* Detail panel: persistent column ≥1024px, overlay below that */}
+          {activeNav !== 'heures' && (showPanelAsColumn || selectedProduct) && (
+            <>
+              {!showPanelAsColumn && (
+                <div
+                  onClick={() => setSelectedProduct(null)}
+                  style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 55 }}
+                />
+              )}
+              <DetailPanel
+                product={selectedProduct}
+                onUpdate={handleUpdate}
+                onClose={() => setSelectedProduct(null)}
+                overlay={!showPanelAsColumn}
+              />
+            </>
           )}
         </div>
       </div>
