@@ -5,6 +5,7 @@ import { Catalogue } from './pages/Catalogue';
 import { Scanner } from './pages/Scanner';
 import { Product } from './pages/Product';
 import { NotFound } from './pages/NotFound';
+import { Heures } from './pages/Heures';
 import { DesktopShell } from './pages/DesktopShell';
 import { useIsDesktop } from './hooks/useIsDesktop';
 import { getTodayCount } from './lib/scanHistory';
@@ -21,6 +22,7 @@ function Drawer({ open, onClose, onNav }) {
     { id: '/', label: 'Affiche', icon: on => <Icon.Image s={18} c={on ? 'var(--primary)' : 'var(--ink-3)'}/> },
     { id: '/catalogue', label: 'Catalogue', icon: on => <Icon.Catalog s={18} c={on ? 'var(--primary)' : 'var(--ink-3)'}/> },
     { id: '/scan', label: 'Scanner', icon: on => <Icon.Scan s={18} c={on ? 'var(--primary)' : 'var(--ink-3)'}/> },
+    { id: '/heures', label: 'Heures', icon: on => <Icon.Clock s={18} c={on ? 'var(--primary)' : 'var(--ink-3)'}/> },
   ];
 
   if (!open) return null;
@@ -147,6 +149,7 @@ export function App() {
           <Route path="/" element={<Affiche/>}/>
           <Route path="/catalogue" element={<Catalogue/>}/>
           <Route path="/scan" element={<Scanner/>}/>
+          <Route path="/heures" element={<Heures/>}/>
           <Route path="/p/:ean" element={<Product/>}/>
           <Route path="/404" element={<NotFound/>}/>
           <Route path="*" element={<Navigate to="/" replace/>}/>
@@ -192,6 +195,7 @@ function MobileShell() {
           {location.pathname === '/' && 'Affiche'}
           {location.pathname === '/catalogue' && 'Catalogue'}
           {location.pathname === '/analyse' && 'Analyse rayon'}
+          {location.pathname === '/heures' && 'Heures'}
           {location.pathname === '/dlc' && 'Calendrier DLC'}
         </div>
       </div>

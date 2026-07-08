@@ -161,6 +161,55 @@ create policy "dlc_items_delete_anon"
   to anon, authenticated
   using (true);
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Work hours tracking (suivi des heures travaillées, page Heures)
+-- ─────────────────────────────────────────────────────────────────────────────
+
+create table if not exists public.work_days (
+  day         date primary key,
+  -- Array of worked time ranges: [{"start":"06:30","end":"13:00"}, ...]
+  -- Empty array = recorded day off (distinct from a missing/unentered day).
+  segments    jsonb not null default '[]'::jsonb,
+  note        text,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  constraint work_days_segments_is_array check (jsonb_typeof(segments) = 'array')
+);
+
+create index if not exists work_days_day_idx on public.work_days (day desc);
+
+drop trigger if exists work_days_set_updated_at on public.work_days;
+create trigger work_days_set_updated_at
+  before update on public.work_days
+  for each row execute function public.set_updated_at();
+
+alter table public.work_days enable row level security;
+
+drop policy if exists "work_days_read_anon" on public.work_days;
+create policy "work_days_read_anon"
+  on public.work_days for select
+  to anon, authenticated
+  using (true);
+
+drop policy if exists "work_days_insert_anon" on public.work_days;
+create policy "work_days_insert_anon"
+  on public.work_days for insert
+  to anon, authenticated
+  with check (jsonb_typeof(segments) = 'array');
+
+drop policy if exists "work_days_update_anon" on public.work_days;
+create policy "work_days_update_anon"
+  on public.work_days for update
+  to anon, authenticated
+  using (true)
+  with check (jsonb_typeof(segments) = 'array');
+
+drop policy if exists "work_days_delete_anon" on public.work_days;
+create policy "work_days_delete_anon"
+  on public.work_days for delete
+  to anon, authenticated
+  using (true);
+
 -- Realtime support for DesktopShell postgres_changes subscription.
 -- Safe to re-run: only adds the table if it is not already in the publication.
 do $$

@@ -9,6 +9,7 @@ import { searchPackshots } from '../lib/bingImages';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { deleteDlcItem, getDlcItems, getDlcItemsAsync, getDlcUrgency, getLastDlcSyncError, updateDlcItemDetails, updateDlcItemStatus } from '../lib/dlcItems';
 import { Analyse } from './Analyse';
+import { Heures } from './Heures';
 
 const CATEGORIES = ['Glaces', 'Viande', 'Poisson', 'Légumes', 'Pizza', 'Plats cuisinés', 'Frites', 'Entrée'];
 const GRID = '20px 56px 1.8fr 1fr 88px 148px 118px';
@@ -62,6 +63,7 @@ function DesktopSidebar({ activeNav, onNav, scanCount }) {
         <SideItem icon={<Icon.Catalog s={16}/>} label="Catalogue" active={activeNav === 'catalogue'} onClick={() => onNav('catalogue')}/>
         <SideItem icon={<Icon.Calendar s={16}/>} label="Calendrier DLC" active={activeNav === 'dlc'} onClick={() => onNav('dlc')}/>
         <SideItem icon={<Icon.Catalog s={16}/>} label="Analyse rayon" active={activeNav === 'analyse'} onClick={() => onNav('analyse')}/>
+        <SideItem icon={<Icon.Clock s={16}/>} label="Heures" active={activeNav === 'heures'} onClick={() => onNav('heures')}/>
         <SideItem icon={<Icon.Settings s={16}/>} label="Paramètres" active={activeNav === 'settings'} onClick={() => onNav('settings')}/>
       </div>
 
@@ -929,7 +931,7 @@ export function DesktopShell() {
 
   const displayItems = activeNav === 'affiche' ? afficheItems : activeNav === 'dlc' ? getDlcItems() : products;
   const displayLoading = activeNav === 'affiche' ? afficheLoading : activeNav === 'catalogue' ? catalogueLoading : false;
-  const navTitle = activeNav === 'affiche' ? 'Affiche' : activeNav === 'dlc' ? 'Calendrier DLC' : activeNav === 'analyse' ? 'Analyse rayon' : activeNav === 'settings' ? 'Paramètres' : 'Catalogue';
+  const navTitle = activeNav === 'affiche' ? 'Affiche' : activeNav === 'dlc' ? 'Calendrier DLC' : activeNav === 'analyse' ? 'Analyse rayon' : activeNav === 'heures' ? 'Heures' : activeNav === 'settings' ? 'Paramètres' : 'Catalogue';
 
   return (
     <div className="dlc-root" style={{ height: '100vh', display: 'flex', overflow: 'hidden' }}>
@@ -1085,6 +1087,8 @@ export function DesktopShell() {
               </div>
             ) : activeNav === 'analyse' ? (
               <Analyse/>
+            ) : activeNav === 'heures' ? (
+              <Heures/>
             ) : activeNav === 'affiche' ? (
               <>
                 <TableHeader
