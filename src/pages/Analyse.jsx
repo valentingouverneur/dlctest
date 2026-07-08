@@ -75,7 +75,7 @@ function isStar(p) {
   return p.ca_ttc > 300 && p.mpaf_ht_pct > 20;
 }
 
-function MiniTable({ rows, columns, compact }) {
+function MiniTable({ rows, columns, compact, onRowClick }) {
   const colWidth = {};
   columns.forEach(c => { colWidth[c.key] = c.width || 'auto'; });
   const gridCols = columns.map(c => colWidth[c.key] || 'auto').join(' ');
@@ -103,6 +103,7 @@ function MiniTable({ rows, columns, compact }) {
           const leaveBg = row._highlight ? 'var(--tint-mint)' : (isEven ? 'transparent' : 'rgba(0,0,0,0.013)');
           return (
             <div key={i}
+              onClick={onRowClick ? function() { onRowClick(row); } : undefined}
               onMouseEnter={function(e) { e.currentTarget.style.background = hoverBg; }}
               onMouseLeave={function(e) { e.currentTarget.style.background = leaveBg; }}
               style={{
@@ -112,6 +113,7 @@ function MiniTable({ rows, columns, compact }) {
                 borderBottom: '0.5px solid var(--hairline-soft)',
                 transition: 'background 0.07s',
                 background: bg,
+                cursor: onRowClick ? 'pointer' : 'default',
               }}
             >
               {columns.map(col => (
@@ -243,7 +245,8 @@ function LoadingState({ message }) {
   );
 }
 
-export function Analyse() {
+export function Analyse({ onSelectEan } = {}) {
+  const rowClick = onSelectEan ? (row => onSelectEan(row.ean)) : undefined;
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -256,16 +259,18 @@ export function Analyse() {
   const [showHistory, setShowHistory] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  // Load analysis history on mount
+  // Load analysis history on mount, then auto-load the most recent one
   useEffect(() => {
     (async () => {
       setHistoryLoading(true);
       try {
         const h = await listAnalyses();
         setHistory(h);
+        if (h.length > 0) handleLoadAnalysis(h[0]);
       } catch {}
       setHistoryLoading(false);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -530,7 +535,7 @@ export function Analyse() {
                     { key: 'ca_ttc', label: 'CA TTC', width: '100px', align: 'right', mono: true, render: v => money(v) },
                       { key: 'mpaf_ht_pct', label: 'Marge', width: '70px', align: 'right', render: v => v + '%' },
                       { key: 'freq', label: 'Fréq.', width: '55px', align: 'right' },
-                    ]} rows={stats.stars.map((r, i) => ({ ...r, '#': i + 1 }))}/>
+                    ]} rows={stats.stars.map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
                   </Section>
                 )}
 
@@ -543,7 +548,7 @@ export function Analyse() {
                       { key: 'ca_ttc', label: 'CA TTC', width: '90px', align: 'right', mono: true, render: v => money(v) },
                       { key: 'uvc', label: 'UVC', width: '55px', align: 'right' },
                       { key: 'mpaf_ht_pct', label: 'Marge', width: '65px', align: 'right', render: v => v + '%' },
-                    ]} rows={stats.risky.slice(0, 10).map((r, i) => ({ ...r, '#': i + 1 }))}/>
+                    ]} rows={stats.risky.slice(0, 10).map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
                   </Section>
                 )}
 
@@ -556,7 +561,7 @@ export function Analyse() {
                       { key: 'casse_paf', label: 'Pertes €', width: '90px', align: 'right', mono: true, render: v => money(v) },
                       { key: 'casse_uvc', label: 'U.', width: '40px', align: 'right' },
                       { key: 'ca_ttc', label: 'CA TTC', width: '90px', align: 'right', mono: true, render: v => money(v) },
-                    ]} rows={stats.casse.map((r, i) => ({ ...r, '#': i + 1 }))}/>
+                    ]} rows={stats.casse.map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
                   </Section>
                 )}
 
@@ -587,7 +592,7 @@ export function Analyse() {
                     { key: 'mpaf', label: 'MPAF €', width: '100px', align: 'right', mono: true, render: v => money(v) },
                     { key: 'uvc', label: 'UVC', width: '60px', align: 'right' },
                     { key: 'freq', label: 'Fréq.', width: '60px', align: 'right' },
-                  ]} rows={stats.topCa.map((r, i) => ({ ...r, '#': i + 1 }))}/>
+                  ]} rows={stats.topCa.map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
                 </Section>
                 <Section title="Meilleures marges (MPAF €)" icon={<Icon.Catalog s={14}/>}>
                   <MiniTable columns={[
@@ -598,7 +603,7 @@ export function Analyse() {
                     { key: 'mpaf_ht_pct', label: 'Marge %', width: '75px', align: 'right', render: v => v + '%' },
                     { key: 'ca_ttc', label: 'CA TTC', width: '110px', align: 'right', mono: true, render: v => money(v) },
                     { key: 'uvc', label: 'UVC', width: '60px', align: 'right' },
-                  ]} rows={stats.topMpaf.map((r, i) => ({ ...r, '#': i + 1 }))}/>
+                  ]} rows={stats.topMpaf.map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
                 </Section>
                 <Section title="Meilleur rapport CA x marge x fréquence" icon={<Icon.Catalog s={14}/>}>
                   <MiniTable columns={[
@@ -609,7 +614,7 @@ export function Analyse() {
                     { key: 'ca_ttc', label: 'CA TTC', width: '110px', align: 'right', mono: true, render: v => money(v) },
                     { key: 'mpaf_ht_pct', label: 'Marge %', width: '75px', align: 'right', render: v => v + '%' },
                     { key: 'freq', label: 'Fréq.', width: '60px', align: 'right' },
-                  ]} rows={stats.topEff.map((r, i) => ({ ...r, '#': i + 1 }))}/>
+                  ]} rows={stats.topEff.map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
                 </Section>
               </div>
             )}
@@ -624,7 +629,7 @@ export function Analyse() {
                   { key: 'mpaf_ht_pct', label: 'Marge %', width: '70px', align: 'right', render: v => v + '%' },
                   { key: 'mpaf', label: 'MPAF €', width: '100px', align: 'right', mono: true, render: v => money(v) },
                   { key: 'freq', label: 'Fréq.', width: '55px', align: 'right' },
-                ]} rows={stats.stars.map((r, i) => ({ ...r, '#': i + 1 }))}/>
+                ]} rows={stats.stars.map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
               </Section>
             )}
 
@@ -639,7 +644,7 @@ export function Analyse() {
                   { key: 'mpaf_ht_pct', label: 'Marge %', width: '70px', align: 'right', render: v => v + '%' },
                   { key: 'mpaf', label: 'MPAF €', width: '90px', align: 'right', mono: true, render: v => money(v) },
                   { key: 'panier', label: 'Panier', width: '65px', align: 'right', mono: true, render: v => money(v) },
-                ]} rows={stats.risky.map((r, i) => ({ ...r, '#': i + 1 }))}/>
+                ]} rows={stats.risky.map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
               </Section>
             )}
 
@@ -652,7 +657,7 @@ export function Analyse() {
                   { key: 'casse_paf', label: 'Pertes €', width: '100px', align: 'right', mono: true, render: v => money(v) },
                   { key: 'casse_uvc', label: 'Unités', width: '60px', align: 'right' },
                   { key: 'ca_ttc', label: 'CA TTC', width: '100px', align: 'right', mono: true, render: v => money(v) },
-                ]} rows={stats.casse.map((r, i) => ({ ...r, '#': i + 1 }))}/>
+                ]} rows={stats.casse.map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
               </Section>
             )}
           </>

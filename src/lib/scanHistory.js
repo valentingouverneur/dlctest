@@ -1,5 +1,5 @@
 const KEY = 'dlc_scans';
-const MAX = 20;
+const MAX = 500;
 
 function today0() {
   const d = new Date();

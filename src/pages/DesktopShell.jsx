@@ -747,7 +747,7 @@ export function DesktopShell() {
     async function loadAffiche() {
       // Get scan list
       let eans;
-      const supaScans = await getRecentScans(20);
+      const supaScans = await getRecentScans();
       if (supaScans !== null && supaScans.length > 0) {
         eans = supaScans.map(s => s.ean);
       } else {
@@ -903,11 +903,7 @@ export function DesktopShell() {
     setBulkDeleting(false);
   };
 
-  const submitPaste = async (e) => {
-    e.preventDefault();
-    if (pasteEan.length < 8) return;
-    const ean = pasteEan;
-    setPasteEan('');
+  const selectByEan = async (ean) => {
     const list = activeNav === 'affiche' ? afficheItems : products;
     const found = list.find(p => p.ean === ean);
     if (found) { setSelectedProduct(found); return; }
@@ -917,6 +913,14 @@ export function DesktopShell() {
     } catch {
       setSelectedProduct({ ean, notFound: true });
     }
+  };
+
+  const submitPaste = async (e) => {
+    e.preventDefault();
+    if (pasteEan.length < 8) return;
+    const ean = pasteEan;
+    setPasteEan('');
+    selectByEan(ean);
   };
 
   const handleUpdate = (updated) => {
@@ -1086,7 +1090,7 @@ export function DesktopShell() {
                 Paramètres à venir.
               </div>
             ) : activeNav === 'analyse' ? (
-              <Analyse/>
+              <Analyse onSelectEan={selectByEan}/>
             ) : activeNav === 'heures' ? (
               <Heures/>
             ) : activeNav === 'affiche' ? (
@@ -1137,11 +1141,13 @@ export function DesktopShell() {
           </div>
 
           {/* Detail panel */}
-          <DetailPanel
-            product={selectedProduct}
-            onUpdate={handleUpdate}
-            onClose={() => setSelectedProduct(null)}
-          />
+          {activeNav !== 'heures' && (
+            <DetailPanel
+              product={selectedProduct}
+              onUpdate={handleUpdate}
+              onClose={() => setSelectedProduct(null)}
+            />
+          )}
         </div>
       </div>
     </div>

@@ -159,7 +159,7 @@ export function Affiche() {
     async function load() {
       // Try Supabase scans table first, fall back to localStorage
       let rawList;
-      const supaScans = await getRecentScans(20);
+      const supaScans = await getRecentScans();
       if (supaScans !== null && supaScans.length > 0) {
         rawList = supaScans;
       } else {
