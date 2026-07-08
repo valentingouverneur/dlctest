@@ -157,11 +157,11 @@ const CONTRACT_KEY = 'dlc_contract_hours';
 // Keyed by JS getDay(): 0=dimanche … 6=samedi. Edit once in the page settings.
 const DEFAULT_TEMPLATE = {
   0: [],
-  1: [{ start: '08:00', end: '13:00' }, { start: '14:00', end: '17:00' }],
-  2: [{ start: '08:00', end: '13:00' }, { start: '14:00', end: '17:00' }],
-  3: [{ start: '08:00', end: '13:00' }, { start: '14:00', end: '17:00' }],
-  4: [{ start: '08:00', end: '13:00' }, { start: '14:00', end: '17:00' }],
-  5: [{ start: '08:00', end: '13:00' }, { start: '14:00', end: '17:00' }],
+  1: [{ start: '05:00', end: '10:00' }, { start: '14:00', end: '17:00' }],
+  2: [{ start: '05:00', end: '10:00' }, { start: '14:00', end: '17:00' }],
+  3: [{ start: '05:00', end: '10:00' }, { start: '14:00', end: '17:00' }],
+  4: [{ start: '05:00', end: '10:00' }, { start: '14:00', end: '17:00' }],
+  5: [{ start: '05:00', end: '10:00' }, { start: '14:00', end: '17:00' }],
   6: [],
 };
 
