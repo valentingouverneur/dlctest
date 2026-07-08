@@ -82,7 +82,7 @@ function MiniTable({ rows, columns, compact, onRowClick }) {
   const gridCols = columns.map(c => colWidth[c.key] || 'auto').join(' ');
   const hoverBg = 'var(--tint-lavender)';
   return (
-    <div style={{ fontSize: compact ? 12 : 13 }}>
+    <div style={{ fontSize: compact ? 12 : 13, overflowX: 'auto' }}>
       <div style={{
         display: 'grid', gridTemplateColumns: gridCols,
         gap: compact ? 6 : 10, alignItems: 'center',

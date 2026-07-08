@@ -367,7 +367,7 @@ export function Heures() {
 
         {/* ── Stats + graphique + réglages (colonne 2 en desktop) ── */}
         <div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))', gap: 8, marginBottom: 12 }}>
           <div style={{ ...card, marginBottom: 0, padding: '12px 12px' }}>
             <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 6 }}>
               Cette semaine
