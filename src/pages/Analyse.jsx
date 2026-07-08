@@ -416,7 +416,7 @@ export function Analyse({ onSelectEan } = {}) {
 
       <div style={{ flex: 1, overflowY: isDesktop ? 'auto' : 'visible', padding: isDesktop ? 20 : 16 }}>
         {!stats && !loading && !error && (
-          <div style={{ maxWidth: 420, margin: '40px auto' }}>
+          <div style={{ maxWidth: isDesktop ? 480 : 420, margin: '40px auto' }}>
             {showHistory ? (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
@@ -482,7 +482,7 @@ export function Analyse({ onSelectEan } = {}) {
         {loading && <LoadingState message="Analyse en cours..."/>}
 
         {error && (
-          <div style={{ maxWidth: 420, margin: '40px auto', textAlign: 'center' }}>
+          <div style={{ maxWidth: isDesktop ? 480 : 420, margin: '40px auto', textAlign: 'center' }}>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
               padding: '10px 16px', borderRadius: 8,

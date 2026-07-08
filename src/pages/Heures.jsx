@@ -6,6 +6,7 @@ import {
   toDayKey, fromDayKey, addDays, mondayOf, isoWeekOf, groupWeeks,
   getTemplate, saveTemplate, getContractHours, saveContractHours,
 } from '../lib/workDays';
+import { useIsDesktop } from '../hooks/useIsDesktop';
 
 const DAY_LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const DAY_NAMES = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
@@ -47,6 +48,7 @@ function TimeInput({ value, onChange }) {
 
 export function Heures() {
   const today = toDayKey(new Date());
+  const isDesktop = useIsDesktop();
 
   const [rows, setRows] = useState({});          // dayKey → work_day row
   const [loading, setLoading] = useState(true);
@@ -193,9 +195,19 @@ export function Heures() {
 
   return (
     <div style={{ minHeight: '100%', background: 'var(--surface)' }}>
-      <div style={{ maxWidth: 640, margin: '0 auto', padding: '14px 14px 96px' }}>
+      <div style={{
+        maxWidth: isDesktop ? 'none' : 640,
+        margin: isDesktop ? 0 : '0 auto',
+        padding: isDesktop ? '20px 24px 48px' : '14px 14px 96px',
+        display: isDesktop ? 'grid' : 'block',
+        gridTemplateColumns: isDesktop ? '420px 1fr' : 'none',
+        gap: isDesktop ? 20 : 0,
+        alignItems: 'start',
+      }}>
 
-        {tableMissing && (
+        {(tableMissing || loadError) && (
+          <div style={{ gridColumn: isDesktop ? '1 / -1' : 'auto' }}>
+            {tableMissing && (
           <div style={{ ...card, background: 'var(--tint-yellow)', border: '0.5px solid var(--tint-yellow-bold)', display: 'flex', gap: 10 }}>
             <Icon.Warn s={16} c="var(--warning)"/>
             <div style={{ fontSize: 12.5, color: 'var(--charcoal)', lineHeight: 1.45 }}>
@@ -204,13 +216,15 @@ export function Heures() {
             </div>
           </div>
         )}
-        {loadError && (
-          <div style={{ ...card, background: 'var(--tint-rose)', fontSize: 12.5, color: 'var(--error)' }}>
-            Erreur de chargement : {loadError}
+            {loadError && (
+              <div style={{ ...card, background: 'var(--tint-rose)', fontSize: 12.5, color: 'var(--error)' }}>
+                Erreur de chargement : {loadError}
+              </div>
+            )}
           </div>
         )}
 
-        {/* ── Saisie du jour ── */}
+        {/* ── Saisie du jour (colonne 1 en desktop) ── */}
         <div style={card}>
           {/* Date nav */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
@@ -351,7 +365,8 @@ export function Heures() {
           )}
         </div>
 
-        {/* ── Stats ── */}
+        {/* ── Stats + graphique + réglages (colonne 2 en desktop) ── */}
+        <div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
           <div style={{ ...card, marginBottom: 0, padding: '12px 12px' }}>
             <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 6 }}>
@@ -495,8 +510,10 @@ export function Heures() {
           )}
         </div>
 
+        </div>
+
         {loading && (
-          <div style={{ textAlign: 'center', padding: 20 }}>
+          <div style={{ gridColumn: isDesktop ? '1 / -1' : 'auto', textAlign: 'center', padding: 20 }}>
             <Icon.Spinner s={16} c="var(--stone)"/>
           </div>
         )}
