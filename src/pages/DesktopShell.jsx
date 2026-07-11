@@ -8,7 +8,7 @@ import { getTodayCount, getHistory } from '../lib/scanHistory';
 import { getRecentScans } from '../lib/scans';
 import { searchPackshots } from '../lib/bingImages';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
-import { deleteDlcItem, getDlcItems, getDlcItemsAsync, getDlcUrgency, getLastDlcSyncError, updateDlcItemDetails, updateDlcItemStatus } from '../lib/dlcItems';
+import { deleteDlcItem, enrichDlcItem, getDlcItems, getDlcItemsAsync, getDlcUrgency, getLastDlcSyncError, updateDlcItemStatus } from '../lib/dlcItems';
 import { Analyse } from './Analyse';
 import { Heures } from './Heures';
 
@@ -571,36 +571,6 @@ function DlcDesktopView() {
   const [loading, setLoading] = useState(false);
   const [syncError, setSyncError] = useState(null);
 
-  const enrichItem = async (item) => {
-    const needsText = !item.title || item.title === item.ean || !item.brand || !item.weight || !item.category;
-    const needsImage = !item.image_url;
-    if (!needsText && !needsImage) return item;
-
-    let details = null;
-    if (needsText || needsImage) {
-      details = (await getProductByEan(item.ean).catch(() => null)) || (await fetchFromOFF(item.ean).catch(() => null));
-    }
-
-    const updates = {};
-    if (details) {
-      if ((!item.title || item.title === item.ean) && details.title) updates.title = details.title;
-      if (!item.brand && details.brand) updates.brand = details.brand;
-      if (!item.weight && details.weight) updates.weight = details.weight;
-      if (!item.category && details.category) updates.category = details.category;
-      if (!item.image_url && details.image_url) updates.image_url = details.image_url;
-    }
-
-    const titleForImage = updates.title || item.title;
-    const brandForImage = updates.brand || item.brand;
-    if (!updates.image_url && !item.image_url && titleForImage && titleForImage !== item.ean) {
-      const shots = await searchPackshots(titleForImage, brandForImage, 1, item.ean).catch(() => []);
-      if (shots[0]) updates.image_url = shots[0];
-    }
-
-    if (Object.keys(updates).length === 0) return item;
-    return (await updateDlcItemDetails(item.id, updates)) || { ...item, ...updates };
-  };
-
   const refresh = async () => {
     setLoading(true);
     try {
@@ -608,7 +578,7 @@ function DlcDesktopView() {
       setItems(loaded);
       setSyncError(getLastDlcSyncError());
       if (!getLastDlcSyncError() && loaded.length > 0) {
-        const enriched = await Promise.all(loaded.map(enrichItem));
+        const enriched = await Promise.all(loaded.map(enrichDlcItem));
         setItems(enriched);
         setSyncError(getLastDlcSyncError());
       }

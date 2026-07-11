@@ -1,4 +1,7 @@
 import { isSupabaseConfigured, requireSupabase } from './supabase';
+import { getProductByEan } from './products';
+import { fetchFromOFF } from './openFoodFacts';
+import { searchPackshots } from './bingImages';
 
 const KEY = 'dlc_items';
 const MAX = 200;
@@ -204,6 +207,36 @@ export async function updateDlcItemDetails(id, updates) {
   }
   lastDlcSyncError = null;
   return replaceLocal(fromDb(data));
+}
+
+export async function enrichDlcItem(item) {
+  const needsText = !item.title || item.title === item.ean || !item.brand || !item.weight || !item.category;
+  const needsImage = !item.image_url;
+  if (!needsText && !needsImage) return item;
+
+  let details = null;
+  if (needsText || needsImage) {
+    details = (await getProductByEan(item.ean).catch(() => null)) || (await fetchFromOFF(item.ean).catch(() => null));
+  }
+
+  const updates = {};
+  if (details) {
+    if ((!item.title || item.title === item.ean) && details.title) updates.title = details.title;
+    if (!item.brand && details.brand) updates.brand = details.brand;
+    if (!item.weight && details.weight) updates.weight = details.weight;
+    if (!item.category && details.category) updates.category = details.category;
+    if (!item.image_url && details.image_url) updates.image_url = details.image_url;
+  }
+
+  const titleForImage = updates.title || item.title;
+  const brandForImage = updates.brand || item.brand;
+  if (!updates.image_url && !item.image_url && titleForImage && titleForImage !== item.ean) {
+    const shots = await searchPackshots(titleForImage, brandForImage, 1, item.ean).catch(() => []);
+    if (shots[0]) updates.image_url = shots[0];
+  }
+
+  if (Object.keys(updates).length === 0) return item;
+  return (await updateDlcItemDetails(item.id, updates)) || { ...item, ...updates };
 }
 
 export async function deleteDlcItem(id) {
