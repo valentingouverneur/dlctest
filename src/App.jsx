@@ -7,6 +7,7 @@ import { Product } from './pages/Product';
 import { NotFound } from './pages/NotFound';
 import { Heures } from './pages/Heures';
 import { Analyse } from './pages/Analyse';
+import { Dlc } from './pages/Dlc';
 import { DesktopShell } from './pages/DesktopShell';
 import { useIsDesktop } from './hooks/useIsDesktop';
 import { getTodayCount } from './lib/scanHistory';
@@ -22,6 +23,7 @@ function Drawer({ open, onClose, onNav }) {
   const items = [
     { id: '/', label: 'Affiche', icon: on => <Icon.Image s={18} c={on ? 'var(--primary)' : 'var(--ink-3)'}/> },
     { id: '/catalogue', label: 'Catalogue', icon: on => <Icon.Catalog s={18} c={on ? 'var(--primary)' : 'var(--ink-3)'}/> },
+    { id: '/dlc', label: 'Calendrier DLC', icon: on => <Icon.Calendar s={18} c={on ? 'var(--primary)' : 'var(--ink-3)'}/> },
     { id: '/scan', label: 'Scanner', icon: on => <Icon.Scan s={18} c={on ? 'var(--primary)' : 'var(--ink-3)'}/> },
     { id: '/analyse', label: 'Analyse rayon', icon: on => <Icon.BarChart s={18} c={on ? 'var(--primary)' : 'var(--ink-3)'}/> },
     { id: '/heures', label: 'Heures', icon: on => <Icon.Clock s={18} c={on ? 'var(--primary)' : 'var(--ink-3)'}/> },
@@ -150,6 +152,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<Affiche/>}/>
           <Route path="/catalogue" element={<Catalogue/>}/>
+          <Route path="/dlc" element={<Dlc/>}/>
           <Route path="/scan" element={<Scanner/>}/>
           <Route path="/analyse" element={<Analyse/>}/>
           <Route path="/heures" element={<Heures/>}/>
