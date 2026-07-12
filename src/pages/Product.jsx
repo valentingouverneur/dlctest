@@ -190,10 +190,13 @@ export function Product() {
     return () => { cancelled = true; };
   }, [ean]);
 
-  // 2. Bing image search — when product has no image_url
+  // 2. Bing image search — when product has no image_url, or the only
+  // image we have came from OFF (those photos are often low quality, so
+  // still search for a better one and let the suggestion banner offer it)
   useEffect(() => {
     const p = product || offProduct;
-    if (!p || p.image_url || bingImageUrl || bingDismissed) return;
+    if (!p || bingImageUrl || bingDismissed) return;
+    if (p.image_url && p.source !== 'openfoodfacts') return;
 
     let cancelled = false;
     searchPackshot(p.title, p.brand, p.ean)
@@ -266,7 +269,7 @@ export function Product() {
         product={offProduct}
         resolvedImageUrl={bingImageUrl || offProduct.image_url}
         fromOFF={!offDismissed}
-        bingImageUrl={!bingDismissed && bingImageUrl && !offProduct.image_url ? bingImageUrl : null}
+        bingImageUrl={!bingDismissed && bingImageUrl ? bingImageUrl : null}
         copiedAll={copiedAll}
         onCopyAll={() => handleCopyAll(offProduct)}
         onCopyField={handleCopyField}

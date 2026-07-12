@@ -15,6 +15,14 @@ import { Heures } from './Heures';
 const CATEGORIES = ['Glaces', 'Viande', 'Poisson', 'Légumes', 'Pizza', 'Plats cuisinés', 'Frites', 'Entrée'];
 const GRID = '20px 56px 1.8fr 1fr 88px 148px 118px';
 
+// OFF's own photo is a fallback, not a resolved image — a Google packshot
+// search result (product.packshots) takes priority once found.
+function resolveImage(product) {
+  if (!product) return null;
+  if (product.source === 'openfoodfacts' && product.packshots?.[0]) return product.packshots[0];
+  return product.image_url || product.packshots?.[0] || null;
+}
+
 function copyToClipboard(text) {
   if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
   const ta = document.createElement('textarea');
@@ -152,11 +160,11 @@ function TableRow({ product, selected, onSelect, checked, onToggle }) {
 
   const openImage = (e) => {
     e.stopPropagation();
-    const src = product.image_url || product.packshots?.[0];
+    const src = resolveImage(product);
     if (src) setModalSrc(src);
   };
 
-  const hasImage = !!(product.image_url || product.packshots?.[0]);
+  const hasImage = !!resolveImage(product);
 
   return (
     <>
@@ -183,7 +191,7 @@ function TableRow({ product, selected, onSelect, checked, onToggle }) {
         />
         <div onClick={openImage} style={{ cursor: hasImage ? 'zoom-in' : 'default' }}>
           <Packshot
-            product={{ title: product.title, brand: product.brand, cat: catDisplayLabel(product.category), imageUrl: product.image_url || product.packshots?.[0] }}
+            product={{ title: product.title, brand: product.brand, cat: catDisplayLabel(product.category), imageUrl: resolveImage(product) }}
             size={40} radius={4} hint={false}
           />
         </div>
@@ -451,11 +459,11 @@ function DetailPanel({ product, onUpdate, onClose, overlay }) {
           background: 'var(--canvas)', borderBottom: '0.5px solid var(--hairline)',
         }}>
           <div
-            onClick={() => (product.image_url || product.packshots?.[0]) && setModalSrc(product.image_url || product.packshots?.[0])}
-            style={{ cursor: (product.image_url || product.packshots?.[0]) ? 'zoom-in' : 'default' }}
+            onClick={() => resolveImage(product) && setModalSrc(resolveImage(product))}
+            style={{ cursor: resolveImage(product) ? 'zoom-in' : 'default' }}
           >
             <Packshot
-              product={{ title: product.title, brand: product.brand, cat: catDisplayLabel(product.category), imageUrl: product.image_url || product.packshots?.[0] }}
+              product={{ title: product.title, brand: product.brand, cat: catDisplayLabel(product.category), imageUrl: resolveImage(product) }}
               size={120} radius={12}
             />
           </div>
@@ -774,7 +782,7 @@ export function DesktopShell() {
 
       // Fetch Bing packshots for items without images (fire-and-forget)
       products.forEach(async (p) => {
-        if (p.image_url || !p.title || p.title === p.ean) return;
+        if ((p.image_url && p.source !== 'openfoodfacts') || !p.title || p.title === p.ean) return;
         const packshots = await searchPackshots(p.title, p.brand, 3, p.ean).catch(() => []);
         if (cancelled || packshots.length === 0) return;
         setAfficheItems(prev => prev.map(it => it.ean === p.ean ? { ...it, packshots } : it));
@@ -812,7 +820,7 @@ export function DesktopShell() {
           setSelectedProduct(sel => sel === null ? p : sel);
 
           // Fire-and-forget Bing packshot fetch
-          if (!p.image_url && p.title !== ean) {
+          if ((!p.image_url || p.source === 'openfoodfacts') && p.title !== ean) {
             searchPackshots(p.title, p.brand, 3, ean)
               .then(shots => {
                 if (shots.length) {

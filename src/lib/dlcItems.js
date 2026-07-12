@@ -225,7 +225,11 @@ export async function enrichDlcItem(item) {
     if (!item.brand && details.brand) updates.brand = details.brand;
     if (!item.weight && details.weight) updates.weight = details.weight;
     if (!item.category && details.category) updates.category = details.category;
-    if (!item.image_url && details.image_url) updates.image_url = details.image_url;
+    // OFF's own photos are often low quality — don't treat one as resolved;
+    // a Google packshot search runs below and takes priority when the
+    // details came from OFF, only falling back to OFF's image if that
+    // search comes up empty.
+    if (!item.image_url && details.image_url && details.source !== 'openfoodfacts') updates.image_url = details.image_url;
   }
 
   const titleForImage = updates.title || item.title;
@@ -233,6 +237,7 @@ export async function enrichDlcItem(item) {
   if (!updates.image_url && !item.image_url && titleForImage && titleForImage !== item.ean) {
     const shots = await searchPackshots(titleForImage, brandForImage, 1, item.ean).catch(() => []);
     if (shots[0]) updates.image_url = shots[0];
+    else if (details?.image_url && details.source === 'openfoodfacts') updates.image_url = details.image_url;
   }
 
   if (Object.keys(updates).length === 0) return item;

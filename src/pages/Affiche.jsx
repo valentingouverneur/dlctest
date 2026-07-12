@@ -69,7 +69,10 @@ function PackshotModal({ packshots, currentUrl, saving, onSelect, onClose }) {
 
 function AfficheCard({ entry, onImageClick, onCardClick }) {
   const product = entry.product;
-  const resolvedImage = product?.image_url || entry.packshots?.[0] || null;
+  // OFF's own photo is a fallback, not a resolved image — a Google
+  // packshot search result takes priority once found.
+  const resolvedImage = (product?.source === 'openfoodfacts' && entry.packshots?.[0])
+    || product?.image_url || entry.packshots?.[0] || null;
   const title = product?.title || entry.title || entry.ean;
   const brand = product?.brand || entry.brand || null;
   const canPickImage = !!(product || entry.packshots?.length > 0);
@@ -191,7 +194,7 @@ export function Affiche() {
           try { product = await fetchFromOFF(entry.ean); } catch {}
         }
 
-        const needsFetch = !product?.image_url;
+        const needsFetch = !product?.image_url || product.source === 'openfoodfacts';
         setItems(prev => prev.map((it, i) =>
           i === idx ? { ...it, product, loadingPackshots: needsFetch && !!(product?.title || entry.title) } : it
         ));
