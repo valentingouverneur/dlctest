@@ -64,5 +64,22 @@ check('plain ean accepted', parseInfomilCsv(plain).rows[0].ean, '3000000000017')
 // Unrecognized file
 check('garbage -> error', !!parseInfomilCsv('hello\nworld').error, true);
 
+// ---- analyseStats ----
+const { computeStats, inferColumns } = await import('../src/lib/analyseStats.js');
+const s = computeStats(p.rows);
+check('stats total', s.total, 150);
+check('stats totalMpaf', s.totalMpaf, 35);
+check('stats totalUvc', s.totalUvc, 15);
+check('stats totalCasse', s.totalCasse, 1.5);
+check('stats count', s.count, 3);
+check('zeros = gamma', s.zeros.map(r => r.ean), ['3000000000031']);
+check('casse list = beta', s.casse.map(r => r.ean), ['3000000000024']);
+check('topCa order', s.topCa.map(r => r.ean), ['3000000000017', '3000000000024', '3000000000031']);
+check('stars empty (no CA > 300)', s.stars.length, 0);
+check('risky excludes uvc=0', s.risky.every(r => r.uvc > 0), true);
+const inferred = inferColumns(p2.rows);
+check('inferColumns missing', inferred.missing.sort(), ['casse_paf', 'casse_uvc', 'freq', 'panier']);
+check('computeStats on null-metric rows does not throw', computeStats(p2.rows).total, 100);
+
 console.log(failures === 0 ? '\nALL CHECKS PASSED' : '\n' + failures + ' FAILURE(S)');
 process.exit(failures === 0 ? 0 : 1);
