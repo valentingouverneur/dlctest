@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Icon } from '../icons';
 import { saveAnalysis, listAnalyses, getAnalysis } from '../lib/analyses';
+import { money, num } from '../lib/format';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 
 // CSV parser (client-side, no deps)
@@ -37,9 +38,6 @@ function parseCsv(text) {
   }
   return { rows, total: rows.reduce((s, r) => s + r.ca_ttc, 0), totalMpaf: rows.reduce((s, r) => s + r.mpaf, 0) };
 }
-
-function money(v) { return v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' \u20AC'; }
-function num(v) { return v.toLocaleString('fr-FR'); }
 
 function copyEan(ean, e) {
   e.stopPropagation();
