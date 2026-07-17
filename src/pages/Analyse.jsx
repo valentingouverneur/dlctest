@@ -430,8 +430,13 @@ export function Analyse({ onSelectEan } = {}) {
     { key: 'top', label: 'Top ventes' },
     { key: 'stars', label: 'Produits star' },
     { key: 'risky', label: 'À risque' },
-    { key: 'casse', label: 'Casse' },
+    ...(has('casse_paf') ? [{ key: 'casse', label: 'Casse' }] : []),
   ];
+
+  useEffect(() => {
+    if (!tabs.some(t => t.key === activeTab)) setActiveTab('overview');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current]);
 
   return (
     <div style={{
@@ -808,7 +813,26 @@ export function Analyse({ onSelectEan } = {}) {
             )}
 
             {activeTab === 'casse' && (
-              <Section title="Casse" subtitle="Pertes enregistrées sur la période">
+              <>
+                {series.filter(r => r.casse != null).length >= 2 && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16,
+                    padding: '12px 16px', borderRadius: 8, border: '0.5px solid var(--hairline)', background: 'var(--canvas)',
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--stone)' }}>Casse / CA</div>
+                      <div style={{ fontSize: 18, fontWeight: 600, fontFamily: 'var(--font-mono)', color: 'var(--charcoal)' }}>
+                        {stats.total > 0 ? ((stats.totalCasse || 0) / stats.total * 100).toFixed(2).replace('.', ',') + ' %' : '—'}
+                      </div>
+                    </div>
+                    <Sparkline width={220} height={44}
+                      points={series.map(r => (r.ca ? (r.casse || 0) / r.ca * 100 : null))}/>
+                    <div style={{ fontSize: 11, color: 'var(--steel)' }}>
+                      {series[0].week ? series[0].week.slice(5) : ''} → {series[series.length - 1].week ? series[series.length - 1].week.slice(5) : ''}
+                    </div>
+                  </div>
+                )}
+                <Section title="Casse" subtitle="Pertes enregistrées sur la période">
                 <MiniTable columns={[
                   { key: '#', label: '#', width: '30px', align: 'right' },
                   { key: 'designation', label: 'Produit' },
@@ -817,7 +841,8 @@ export function Analyse({ onSelectEan } = {}) {
                   { key: 'casse_uvc', label: 'Unités', width: '60px', align: 'right' },
                   { key: 'ca_ttc', label: 'CA TTC', width: '100px', align: 'right', mono: true, render: v => money(v) },
                 ]} rows={stats.casse.map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
-              </Section>
+                </Section>
+              </>
             )}
           </>
         )}
