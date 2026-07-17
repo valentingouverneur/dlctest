@@ -1,43 +1,10 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Icon } from '../icons';
 import { saveAnalysis, listAnalyses, getAnalysis } from '../lib/analyses';
+import { parseInfomilCsv, deriveWeek, buildLabel, titleCase, COLUMN_LABELS } from '../lib/infomil';
+import { computeStats, inferColumns, efficiency } from '../lib/analyseStats';
 import { money, num } from '../lib/format';
 import { useIsDesktop } from '../hooks/useIsDesktop';
-
-// CSV parser (client-side, no deps)
-function parseCsv(text) {
-  const rows = [];
-  const lines = text.split('\n');
-  let headerIdx = -1;
-
-  for (let i = 0; i < lines.length; i++) {
-    const cols = lines[i].split(';').map(c => c.trim());
-    if (cols[0] === 'EAN') { headerIdx = i; break; }
-  }
-  if (headerIdx === -1) return { error: 'Format CSV non reconnu' };
-
-  const dataRows = lines.slice(headerIdx + 1);
-  for (const line of dataRows) {
-    const cols = line.split(';');
-    if (!cols[0] || !cols[0].trim().match(/^\d{8,}/)) continue;
-    try {
-      const p = {
-        ean: cols[0]?.trim() || '',
-        designation: cols[1]?.trim() || '',
-        ca_ttc: parseFloat((cols[3] || '0').replace(',', '.')),
-        uvc: parseInt(cols[5] || '0'),
-        mpaf_ht_pct: parseFloat((cols[6] || '0').replace(',', '.')),
-        panier: parseFloat((cols[10] || '0').replace(',', '.')),
-        freq: parseInt(cols[11] || '0'),
-        mpaf: parseFloat((cols[15] || '0').replace(',', '.')),
-        casse_paf: parseFloat((cols[21] || '0').replace(',', '.')),
-        casse_uvc: parseInt(cols[25] || '0'),
-      };
-      rows.push(p);
-    } catch {}
-  }
-  return { rows, total: rows.reduce((s, r) => s + r.ca_ttc, 0), totalMpaf: rows.reduce((s, r) => s + r.mpaf, 0) };
-}
 
 function copyEan(ean, e) {
   e.stopPropagation();
@@ -60,19 +27,6 @@ function EanRender(v, row) {
 }
 
 var eanCol = { key: 'ean', label: 'EAN', width: '115px', mono: true, render: EanRender };
-
-function riskScore(p) {
-  if (p.uvc === 0) return -Infinity;
-  return (p.ca_ttc / p.uvc) * (p.mpaf_ht_pct / 100);
-}
-
-function efficiency(p) {
-  return p.ca_ttc * p.freq * (p.mpaf_ht_pct / 100);
-}
-
-function isStar(p) {
-  return p.ca_ttc > 300 && p.mpaf_ht_pct > 20;
-}
 
 function MiniTable({ rows, columns, compact, onRowClick }) {
   const colWidth = {};
@@ -226,8 +180,39 @@ function EmptyState({ onFile }) {
       </div>
       <div style={{ fontSize: 12, color: 'var(--steel)', textAlign: 'center', maxWidth: 300, lineHeight: 1.5 }}>
         ou clique pour sélectionner le fichier<br/>
-        Export <strong>Statistiques vacances Abaco</strong> (format ; encodé UTF-8)
+        Export brut <strong>Infomil — Statistiques sur une période</strong>, aucune retouche nécessaire
       </div>
+    </div>
+  );
+}
+
+function ImportReport({ report, onClose }) {
+  const warn = report.missingLabels.length > 0 || !report.integrity.ok;
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: 10,
+      padding: '10px 14px', borderRadius: 8, marginBottom: 14,
+      background: warn ? 'var(--tint-peach)' : 'var(--tint-mint)',
+      border: '0.5px solid var(--hairline)', fontSize: 12, color: 'var(--charcoal)',
+    }}>
+      <div style={{ flex: 1 }}>
+        <strong>{num(report.count)} références importées.</strong>
+        {' '}
+        {report.integrity.ok
+          ? '✓ Totaux conformes au fichier.'
+          : '⚠ Écart avec les totaux du fichier : '
+            + Object.entries(report.integrity.deltas)
+                .map(([k, d]) => k + ' calculé ' + d.computed + ' vs ' + d.official)
+                .join(' · ') + '.'}
+        {report.missingLabels.length > 0 && (
+          <div style={{ marginTop: 3, color: 'var(--steel)' }}>
+            Colonnes absentes de cet export : {report.missingLabels.join(', ')} — les sections liées sont masquées.
+          </div>
+        )}
+      </div>
+      <button onClick={onClose} className="btn btn-ghost" style={{ height: 22, width: 22, padding: 0, flexShrink: 0 }}>
+        <Icon.Close s={11}/>
+      </button>
     </div>
   );
 }
@@ -247,17 +232,18 @@ function LoadingState({ message }) {
 export function Analyse({ onSelectEan } = {}) {
   const isDesktop = useIsDesktop();
   const rowClick = onSelectEan ? (row => onSelectEan(row.ean)) : undefined;
-  const [stats, setStats] = useState(null);
+  const [current, setCurrent] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [fileName, setFileName] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
-  const [saving, setSaving] = useState(false);
-  const [savedId, setSavedId] = useState(null);
+  const [saveState, setSaveState] = useState(null); // null | 'saving' | 'saved' | 'error'
   const [saveError, setSaveError] = useState(null);
+  const [report, setReport] = useState(null);
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+
+  const stats = current?.stats;
 
   // Load analysis history on mount, then auto-load the most recent one
   useEffect(() => {
@@ -273,43 +259,94 @@ export function Analyse({ onSelectEan } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSave = useCallback(async () => {
-    if (!stats) return;
-    setSaving(true);
+  const refreshHistory = useCallback(async () => {
+    try { setHistory(await listAnalyses()); } catch {}
+  }, []);
+
+  const persist = useCallback(async (cur) => {
+    setSaveState('saving');
     setSaveError(null);
     try {
-      const id = await saveAnalysis(fileName || 'Analyse', stats);
-      setSavedId(id);
-      setHistory(prev => [{
-        id, created_at: new Date().toISOString(),
-        file_name: fileName || 'Analyse',
-        total_ca: stats.total,
-        total_mpaf: stats.totalMpaf,
-        product_count: stats.rows,
-      }, ...prev]);
+      const id = await saveAnalysis({
+        fileName: cur.fileName, label: cur.label,
+        rayon: cur.rayon, rayonCode: cur.rayonCode,
+        weekLabel: cur.weekLabel, periodDate: cur.periodDate,
+        stats: cur.stats, rows: cur.rows,
+      });
+      setCurrent(c => (c && c.label === cur.label ? { ...c, id } : c));
+      setSaveState('saved');
+      refreshHistory();
     } catch (e) {
-      if (e.message === 'TABLE_MISSING') {
-        setSaveError('Table analyses introuvable. Va dans Supabase Dashboard > SQL Editor et crée-la (le SQL est dans la console).');
+      setSaveState('error');
+      if (e.message === 'TABLE_MISSING' || e.message === 'MIGRATION_MISSING') {
+        setSaveError('Base non à jour : exécute supabase/2026-07-16-analyses-v2.sql dans Supabase Dashboard > SQL Editor.');
       } else {
         setSaveError(e.message || 'Erreur de sauvegarde');
       }
     }
-    setSaving(false);
-  }, [stats, fileName]);
+  }, [refreshHistory]);
 
-  const handleLoadAnalysis = useCallback(async (analysis) => {
+  const handleFile = useCallback(async (file) => {
     setLoading(true);
+    setError(null);
     try {
-      const full = await getAnalysis(analysis.id);
-      if (!full || !full.stats) {
+      const text = await file.text();
+      const parsed = parseInfomilCsv(text);
+      if (parsed.error) { setError(parsed.error); setLoading(false); return; }
+
+      const stats = computeStats(parsed.rows);
+      const week = deriveWeek(file.name, parsed.meta);
+      const label = buildLabel(week, parsed.meta, file.name);
+      const cur = {
+        id: null, label, fileName: file.name,
+        rayon: parsed.meta.rayon, rayonCode: parsed.meta.rayonCode,
+        weekLabel: week ? week.key : null,
+        periodDate: parsed.meta.exportedAt
+          ? parsed.meta.exportedAt.getFullYear() + '-'
+            + String(parsed.meta.exportedAt.getMonth() + 1).padStart(2, '0') + '-'
+            + String(parsed.meta.exportedAt.getDate()).padStart(2, '0')
+          : null,
+        stats, rows: parsed.rows, columns: parsed.columns, integrity: parsed.integrity,
+        legacy: false,
+      };
+      setCurrent(cur);
+      setReport({
+        count: parsed.rows.length,
+        missingLabels: parsed.columns.missing.map(k => COLUMN_LABELS[k]),
+        integrity: parsed.integrity,
+      });
+      setActiveTab('overview');
+      setLoading(false);
+      persist(cur);
+    } catch (e) {
+      setError('Erreur de lecture : ' + e.message);
+      setLoading(false);
+    }
+  }, [persist]);
+
+  const handleLoadAnalysis = useCallback(async (entry) => {
+    setLoading(true);
+    setError(null);
+    setReport(null);
+    try {
+      const full = await getAnalysis(entry.id);
+      if (!full || (!full.stats && !full.rows)) {
         setError('Impossible de charger cette analyse');
         setLoading(false);
         return;
       }
-      const s = full.stats;
-      setStats(s);
-      setFileName(full.file_name);
-      setSavedId(analysis.id);
+      const hasRows = Array.isArray(full.rows) && full.rows.length > 0;
+      const stats = hasRows ? computeStats(full.rows) : full.stats;
+      setCurrent({
+        id: full.id, label: full.file_name || 'Analyse', fileName: full.file_name,
+        rayon: full.rayon || null, rayonCode: full.rayon_code || null,
+        weekLabel: full.week_label || null, periodDate: full.period_date || null,
+        stats, rows: hasRows ? full.rows : null,
+        columns: hasRows ? inferColumns(full.rows) : null,
+        integrity: null, legacy: !hasRows,
+      });
+      setSaveState('saved');
+      setSaveError(null);
       setShowHistory(false);
       setActiveTab('overview');
     } catch (e) {
@@ -318,43 +355,12 @@ export function Analyse({ onSelectEan } = {}) {
     setLoading(false);
   }, []);
 
-  const handleFile = useCallback(async (file) => {
-    setLoading(true);
-    setError(null);
-    setFileName(file.name);
-    await new Promise(r => setTimeout(r, 200));
-    try {
-      const text = await file.text();
-      const result = parseCsv(text);
-      if (result.error) { setError(result.error); setLoading(false); return; }
-      if (result.rows.length === 0) { setError('Aucune donnée trouvée dans le fichier.'); setLoading(false); return; }
-
-      const rows = result.rows;
-      const total = result.total;
-      const totalMpaf = result.totalMpaf;
-      const totalUvc = rows.reduce((s, r) => s + r.uvc, 0);
-
-      const topCa = [...rows].sort((a, b) => b.ca_ttc - a.ca_ttc).slice(0, 15);
-      const topMpaf = [...rows].sort((a, b) => b.mpaf - a.mpaf).slice(0, 15);
-      const topEff = [...rows].sort((a, b) => efficiency(b) - efficiency(a)).slice(0, 15);
-      const stars = [...rows].filter(r => isStar(r)).sort((a, b) => b.ca_ttc * b.mpaf_ht_pct - a.ca_ttc * a.mpaf_ht_pct).slice(0, 10);
-      const risky = [...rows].filter(r => r.uvc > 0).sort((a, b) => riskScore(a) - riskScore(b)).slice(0, 20);
-      const zeros = rows.filter(r => r.uvc === 0 && r.ca_ttc === 0);
-      const casse = [...rows].filter(r => r.casse_paf > 0).sort((a, b) => b.casse_paf - a.casse_paf).slice(0, 10);
-
-      setStats({ total, totalMpaf, totalUvc, rows: rows.length, topCa, topMpaf, topEff, stars, risky, zeros, casse });
-      setLoading(false);
-      setActiveTab('overview');
-    } catch (e) {
-      setError('Erreur de lecture : ' + e.message);
-      setLoading(false);
-    }
-  }, []);
-
   const handleReset = () => {
-    setStats(null);
+    setCurrent(null);
     setError(null);
-    setFileName(null);
+    setReport(null);
+    setSaveState(null);
+    setSaveError(null);
   };
 
   const tabs = [
@@ -388,16 +394,21 @@ export function Analyse({ onSelectEan } = {}) {
           fontFamily: 'var(--font-mono)',
         }}>A</div>
         <div style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>Analyse rayon</div>
-        {stats && (
+        {current && (
           <>
-            {savedId ? (
-              <span style={{ fontSize: 11, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Icon.Check s={11} c="var(--success)"/> Sauvegardée
+            {saveState === 'saving' && (
+              <span style={{ fontSize: 11, color: 'var(--steel)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Icon.Spinner s={11} c="var(--steel)"/> Sauvegarde…
               </span>
-            ) : (
-              <button onClick={handleSave} disabled={saving} className="btn" style={{ height: 28, fontSize: 12 }}>
-                {saving ? <Icon.Spinner s={12} c="var(--charcoal)"/> : <Icon.Catalog s={12}/>}
-                {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+            )}
+            {saveState === 'saved' && (
+              <span style={{ fontSize: 11, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Icon.Check s={11} c="var(--success)"/> {current.label} enregistrée
+              </span>
+            )}
+            {saveState === 'error' && (
+              <button onClick={() => persist(current)} className="btn" style={{ height: 28, fontSize: 12, color: 'var(--error)' }}>
+                <Icon.Warn s={12} c="var(--error)"/> Non sauvegardée — réessayer
               </button>
             )}
             <button onClick={handleReset} className="btn btn-ghost" style={{ height: 28, fontSize: 12 }}>
@@ -499,6 +510,7 @@ export function Analyse({ onSelectEan } = {}) {
 
         {stats && (
           <>
+            {report && <ImportReport report={report} onClose={() => setReport(null)}/>}
             <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
               {tabs.map(tab => (
                 <button
@@ -512,7 +524,7 @@ export function Analyse({ onSelectEan } = {}) {
               ))}
               <div style={{ flex: 1 }}/>
               <div style={{ fontSize: 11, color: 'var(--stone)', alignSelf: 'center' }}>
-                {fileName}
+                {current.label}
               </div>
             </div>
 
@@ -520,7 +532,7 @@ export function Analyse({ onSelectEan } = {}) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   <StatCard label="CA Total TTC" value={money(stats.total)}
-                    sub={stats.rows + ' références'} color="var(--charcoal)"/>
+                    sub={(stats.count ?? stats.rows) + ' références'} color="var(--charcoal)"/>
                   <StatCard label="Marge (MPAF)" value={money(stats.totalMpaf)}
                     sub={(stats.totalMpaf / stats.total * 100).toFixed(1) + '% de marge'} color="var(--brand-green)"/>
                   <StatCard label="Unités vendues" value={num(stats.totalUvc)}
