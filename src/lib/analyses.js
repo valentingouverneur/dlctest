@@ -1,10 +1,10 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 
 function mapError(error) {
-  if (error.code === '42P01' || error.message?.includes('does not exist')) {
+  if (error.code === '42P01' || /relation .* does not exist/i.test(error.message || '')) {
     return new Error('TABLE_MISSING');
   }
-  if (error.code === 'PGRST204' || /column|constraint/i.test(error.message || '')) {
+  if (error.code === 'PGRST204' || error.code === '42703' || /column|constraint/i.test(error.message || '')) {
     return new Error('MIGRATION_MISSING');
   }
   return new Error(error.message || 'Erreur de sauvegarde');
