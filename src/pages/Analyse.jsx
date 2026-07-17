@@ -394,6 +394,25 @@ export function Analyse({ onSelectEan } = {}) {
           fontFamily: 'var(--font-mono)',
         }}>A</div>
         <div style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>Analyse rayon</div>
+        {history.length > 0 && (
+          <select
+            value={current?.id || ''}
+            onChange={e => {
+              const entry = history.find(h => h.id === e.target.value);
+              if (entry) handleLoadAnalysis(entry);
+            }}
+            className="input"
+            style={{ height: 28, fontSize: 12, width: 'auto', minWidth: 150, padding: '0 8px' }}
+          >
+            {!current?.id && <option value="">Import en cours…</option>}
+            {history.map(h => (
+              <option key={h.id} value={h.id}>
+                {(h.week_label ? h.week_label.slice(5) + (h.rayon ? ' · ' + titleCase(h.rayon) : '') : h.file_name || 'Analyse')
+                  + ' — ' + new Date(h.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+              </option>
+            ))}
+          </select>
+        )}
         {current && (
           <>
             {saveState === 'saving' && (
@@ -464,7 +483,7 @@ export function Analyse({ onSelectEan } = {}) {
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {entry.file_name || 'Analyse'}
+                        {(entry.week_label ? entry.week_label.slice(5) + (entry.rayon ? ' · ' + titleCase(entry.rayon) : '') : entry.file_name || 'Analyse')}
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--steel)', marginTop: 1 }}>
                         {new Date(entry.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
