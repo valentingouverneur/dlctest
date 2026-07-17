@@ -354,10 +354,12 @@ export function Scanner() {
         }}
       />
 
-      {/* Dark overlay */}
+      {/* Dark overlay — kept nearly transparent while scanning: the camera
+          feed must stay bright to read barcodes in dim aisles; the top/bottom
+          gradients already carry text legibility. */}
       <div style={{
         position: 'absolute', inset: 0,
-        background: cameraActive ? 'rgba(0,0,0,0.32)' : 'rgba(0,0,0,0.88)',
+        background: cameraActive ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.88)',
       }}/>
 
       {/* Layout: 3 zones — top bar | camera area (flex-1) | bottom strip */}
