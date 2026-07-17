@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Icon } from '../icons';
 import { saveAnalysis, listAnalyses, getAnalysis, getPreviousAnalysis } from '../lib/analyses';
 import { parseInfomilCsv, deriveWeek, buildLabel, titleCase, COLUMN_LABELS } from '../lib/infomil';
-import { computeStats, inferColumns, efficiency } from '../lib/analyseStats';
+import { computeStats, inferColumns, efficiency, riskScore } from '../lib/analyseStats';
 import { money, num } from '../lib/format';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { KpiTile } from '../components/charts/KpiTile';
@@ -63,11 +63,26 @@ function EanRender(v, row) {
 
 var eanCol = { key: 'ean', label: 'EAN', width: '115px', mono: true, render: EanRender };
 
+const SCROLL_CHUNK = 100;
+
 function MiniTable({ rows, columns, compact, onRowClick }) {
   const colWidth = {};
   columns.forEach(c => { colWidth[c.key] = c.width || 'auto'; });
   const gridCols = columns.map(c => colWidth[c.key] || 'auto').join(' ');
   const hoverBg = 'var(--tint-lavender)';
+
+  // Infinite scroll: render 100 rows, +100 whenever the inner scroll nears the
+  // bottom. Instances unmount on tab switch; length change covers analysis switch.
+  const [visible, setVisible] = useState(SCROLL_CHUNK);
+  useEffect(() => { setVisible(SCROLL_CHUNK); }, [rows.length]);
+  const shown = rows.length > visible ? rows.slice(0, visible) : rows;
+  const handleScroll = e => {
+    if (visible >= rows.length) return;
+    const el = e.currentTarget;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 200) {
+      setVisible(v => Math.min(v + SCROLL_CHUNK, rows.length));
+    }
+  };
   return (
     <div style={{ fontSize: compact ? 12 : 13, overflowX: 'auto' }}>
       <div style={{
@@ -84,8 +99,8 @@ function MiniTable({ rows, columns, compact, onRowClick }) {
           }}>{col.label}</div>
         ))}
       </div>
-      <div style={{ maxHeight: compact ? 300 : 480, overflowY: 'auto' }}>
-        {rows.map((row, i) => {
+      <div style={{ maxHeight: compact ? 300 : 480, overflowY: 'auto' }} onScroll={handleScroll}>
+        {shown.map((row, i) => {
           const isEven = i % 2 === 0;
           const bg = row._highlight ? 'var(--tint-mint)' : (isEven ? 'transparent' : 'rgba(0,0,0,0.013)');
           const leaveBg = row._highlight ? 'var(--tint-mint)' : (isEven ? 'transparent' : 'rgba(0,0,0,0.013)');
@@ -118,6 +133,11 @@ function MiniTable({ rows, columns, compact, onRowClick }) {
             </div>
           );
         })}
+        {visible < rows.length && (
+          <div style={{ padding: '8px 12px', fontSize: 11, color: 'var(--stone)', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>
+            {visible.toLocaleString('fr-FR')} / {rows.length.toLocaleString('fr-FR')} références — continue de défiler
+          </div>
+        )}
       </div>
     </div>
   );
@@ -273,6 +293,19 @@ export function Analyse({ onSelectEan } = {}) {
   const trends = key => (series.length >= 2 ? series.map(r => r[key]) : null);
   const margeSeries = series.map(r => (r.ca ? (r.mpaf || 0) / r.ca * 100 : null));
   const eanClick = onSelectEan || undefined; // for charts that pass a bare EAN
+
+  // Full sorted lists for the Top ventes / À risque tabs (legacy saves fall
+  // back to the stored top slices — they have no raw rows to sort).
+  const fullTops = useMemo(() => {
+    if (!current?.rows) return null;
+    const rows = current.rows;
+    return {
+      topCa: [...rows].sort((a, b) => (b.ca_ttc || 0) - (a.ca_ttc || 0)),
+      topMpaf: [...rows].sort((a, b) => (b.mpaf || 0) - (a.mpaf || 0)),
+      topEff: [...rows].sort((a, b) => efficiency(b) - efficiency(a)),
+      risky: rows.filter(r => (r.uvc || 0) > 0).sort((a, b) => riskScore(a) - riskScore(b)),
+    };
+  }, [current]);
 
   // Load analysis history on mount, then auto-load the most recent one
   useEffect(() => {
@@ -754,7 +787,7 @@ export function Analyse({ onSelectEan } = {}) {
                     { key: 'mpaf', label: 'MPAF €', width: '100px', align: 'right', mono: true, render: v => money(v) },
                     { key: 'uvc', label: 'UVC', width: '60px', align: 'right' },
                     { key: 'freq', label: 'Fréq.', width: '60px', align: 'right' },
-                  ]} rows={stats.topCa.map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
+                  ]} rows={(fullTops?.topCa ?? stats.topCa).map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
                 </Section>
                 <Section title="Meilleures marges (MPAF €)" icon={<Icon.Catalog s={14}/>}>
                   <MiniTable columns={[
@@ -765,7 +798,7 @@ export function Analyse({ onSelectEan } = {}) {
                     { key: 'mpaf_ht_pct', label: 'Marge %', width: '75px', align: 'right', render: v => v + '%' },
                     { key: 'ca_ttc', label: 'CA TTC', width: '110px', align: 'right', mono: true, render: v => money(v) },
                     { key: 'uvc', label: 'UVC', width: '60px', align: 'right' },
-                  ]} rows={stats.topMpaf.map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
+                  ]} rows={(fullTops?.topMpaf ?? stats.topMpaf).map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
                 </Section>
                 {has('freq') && (
                   <Section title="Meilleur rapport CA x marge x fréquence" icon={<Icon.Catalog s={14}/>}>
@@ -777,7 +810,7 @@ export function Analyse({ onSelectEan } = {}) {
                       { key: 'ca_ttc', label: 'CA TTC', width: '110px', align: 'right', mono: true, render: v => money(v) },
                       { key: 'mpaf_ht_pct', label: 'Marge %', width: '75px', align: 'right', render: v => v + '%' },
                       { key: 'freq', label: 'Fréq.', width: '60px', align: 'right' },
-                    ]} rows={stats.topEff.map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
+                    ]} rows={(fullTops?.topEff ?? stats.topEff).map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
                   </Section>
                 )}
               </div>
@@ -808,7 +841,7 @@ export function Analyse({ onSelectEan } = {}) {
                   { key: 'mpaf_ht_pct', label: 'Marge %', width: '70px', align: 'right', render: v => v + '%' },
                   { key: 'mpaf', label: 'MPAF €', width: '90px', align: 'right', mono: true, render: v => money(v) },
                   { key: 'panier', label: 'Panier', width: '65px', align: 'right', mono: true, render: v => money(v) },
-                ]} rows={stats.risky.map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
+                ]} rows={(fullTops?.risky ?? stats.risky).map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
               </Section>
             )}
 
