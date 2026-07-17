@@ -100,6 +100,12 @@ const Icon = {
       <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/>
     </svg>
   ),
+  Trash: ({ s = 16, c = 'currentColor', w = 1.5 }) => (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+      <path d="M10 11v6M14 11v6"/>
+    </svg>
+  ),
   Image: ({ s = 18, c = 'currentColor', w = 1.4 }) => (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="3" width="18" height="18" rx="2"/>

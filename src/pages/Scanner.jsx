@@ -10,6 +10,28 @@ import { DlcQuickSheet } from './DlcQuickSheet';
 
 const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'];
 
+// Haptic + audio feedback on detection, like a real store scanner. Everything
+// is best-effort: no vibration API on iOS, AudioContext may be suspended.
+let audioCtx = null;
+function scanFeedback() {
+  try { navigator.vibrate?.(40); } catch {}
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    if (!audioCtx) audioCtx = new Ctx();
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 1760;
+    gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.13);
+  } catch {}
+}
+
 // 4-corner viewfinder — corners only, no CSS borders
 function ViewfinderCorners({ amber = false }) {
   const c = amber ? 'oklch(0.72 0.16 70)' : '#ffffff';
@@ -107,6 +129,8 @@ export function Scanner() {
   const [error, setError] = useState(null);
   const [showPaste, setShowPaste] = useState(false);
   const [manualEan, setManualEan] = useState('');
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
 
   // Session
   const [sessionStart] = useState(() => new Date());
@@ -127,6 +151,16 @@ export function Scanner() {
     const next = !batchModeRef.current;
     batchModeRef.current = next;
     setBatchMode(next);
+  };
+
+  const toggleTorch = async () => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+    const next = !torchOn;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: next }] });
+      setTorchOn(next);
+    } catch {}
   };
 
   const resumeScanning = () => {
@@ -154,6 +188,7 @@ export function Scanner() {
 
   async function handleDetected(ean) {
     navigatingRef.current = true;
+    scanFeedback();
 
     if (batchModeRef.current) {
       setScanCount(prev => prev + 1);
@@ -244,6 +279,11 @@ export function Scanner() {
 
         if (!mountedRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
         streamRef.current = stream;
+
+        try {
+          const caps = stream.getVideoTracks()[0]?.getCapabilities?.();
+          if (caps?.torch) setTorchSupported(true);
+        } catch {}
 
         // Attach stream — video element is always in the DOM so videoRef is ready
         if (videoRef.current) {
@@ -360,6 +400,16 @@ export function Scanner() {
               <span style={{ width: 6, height: 6, borderRadius: 99, background: batchMode ? 'white' : 'rgba(255,255,255,0.4)' }}/>
               Rafale
             </button>
+
+            {torchSupported && (
+              <button onClick={toggleTorch} style={{
+                width: 32, height: 32, borderRadius: 8, border: 'none', cursor: 'pointer',
+                background: torchOn ? 'white' : 'rgba(255,255,255,0.1)',
+                color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>
+                <Icon.Flash s={15} c={torchOn ? '#1a1611' : 'white'} fill={torchOn ? '#1a1611' : 'none'}/>
+              </button>
+            )}
 
             <button onClick={() => setShowPaste(s => !s)} style={{
               width: 32, height: 32, borderRadius: 8, border: 'none', cursor: 'pointer',

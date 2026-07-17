@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Icon } from '../icons';
-import { saveAnalysis, listAnalyses, getAnalysis, getPreviousAnalysis } from '../lib/analyses';
+import { saveAnalysis, listAnalyses, getAnalysis, getPreviousAnalysis, deleteAnalysis } from '../lib/analyses';
 import { parseInfomilCsv, deriveWeek, buildLabel, titleCase, COLUMN_LABELS } from '../lib/infomil';
 import { computeStats, inferColumns, efficiency, riskScore } from '../lib/analyseStats';
 import { money, num } from '../lib/format';
@@ -448,6 +448,21 @@ export function Analyse({ onSelectEan } = {}) {
     setLoading(false);
   }, []);
 
+  const handleDelete = useCallback(async (entry, e) => {
+    e.stopPropagation();
+    const label = entry.week_label
+      ? entry.week_label.slice(5) + (entry.rayon ? ' · ' + titleCase(entry.rayon) : '')
+      : entry.file_name || 'cette analyse';
+    if (!window.confirm('Supprimer ' + label + ' ? Cette action est définitive.')) return;
+    try {
+      await deleteAnalysis(entry.id);
+      setHistory(prev => prev.filter(h => h.id !== entry.id));
+      if (current?.id === entry.id) setSaveState(null);
+    } catch (err) {
+      setError('Suppression impossible : ' + (err.message || 'erreur inconnue'));
+    }
+  }, [current]);
+
   const handleReset = () => {
     setCurrent(null);
     setError(null);
@@ -590,6 +605,20 @@ export function Analyse({ onSelectEan } = {}) {
                         {' · ' + money(entry.total_ca) + ' CA · ' + entry.product_count + ' réf.'}
                       </div>
                     </div>
+                    <button
+                      onClick={function(e) { handleDelete(entry, e); }}
+                      title="Supprimer"
+                      style={{
+                        width: 28, height: 28, borderRadius: 6, border: 'none',
+                        background: 'transparent', cursor: 'pointer', flexShrink: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: 'var(--stone)',
+                      }}
+                      onMouseEnter={function(e) { e.currentTarget.style.color = 'var(--error)'; e.currentTarget.style.background = 'var(--tint-rose)'; }}
+                      onMouseLeave={function(e) { e.currentTarget.style.color = 'var(--stone)'; e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <Icon.Trash s={14}/>
+                    </button>
                     <Icon.ChevronRight s={13} c="var(--stone)"/>
                   </div>
                 ))}
