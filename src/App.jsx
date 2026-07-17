@@ -1,17 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Affiche } from './pages/Affiche';
-import { Catalogue } from './pages/Catalogue';
 import { Scanner } from './pages/Scanner';
 import { Product } from './pages/Product';
-import { NotFound } from './pages/NotFound';
-import { Heures } from './pages/Heures';
-import { Analyse } from './pages/Analyse';
-import { Dlc } from './pages/Dlc';
-import { DesktopShell } from './pages/DesktopShell';
 import { useIsDesktop } from './hooks/useIsDesktop';
 import { getTodayCount } from './lib/scanHistory';
 import { Icon } from './icons';
+
+// Split heavy pages out of the initial bundle. Affiche (home), Scanner and
+// Product stay eager: the scan -> product flow must never wait on a chunk.
+const Catalogue = lazy(() => import('./pages/Catalogue').then(m => ({ default: m.Catalogue })));
+const NotFound = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })));
+const Heures = lazy(() => import('./pages/Heures').then(m => ({ default: m.Heures })));
+const Analyse = lazy(() => import('./pages/Analyse').then(m => ({ default: m.Analyse })));
+const Dlc = lazy(() => import('./pages/Dlc').then(m => ({ default: m.Dlc })));
+const DesktopShell = lazy(() => import('./pages/DesktopShell').then(m => ({ default: m.DesktopShell })));
+
+function PageFallback() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+      <Icon.Spinner s={24} c="var(--primary)"/>
+    </div>
+  );
+}
 
 // ─── Drawer overlay ──────────────────────────────────────────────────
 function Drawer({ open, onClose, onNav }) {
@@ -143,23 +154,29 @@ export function App() {
   const isDesktop = useIsDesktop(768);
 
   if (isDesktop) {
-    return <DesktopShell/>;
+    return (
+      <Suspense fallback={<PageFallback/>}>
+        <DesktopShell/>
+      </Suspense>
+    );
   }
 
   return (
     <BrowserRouter>
       <div className="dlc-root" style={{ minHeight: '100vh', position: 'relative' }}>
-        <Routes>
-          <Route path="/" element={<Affiche/>}/>
-          <Route path="/catalogue" element={<Catalogue/>}/>
-          <Route path="/dlc" element={<Dlc/>}/>
-          <Route path="/scan" element={<Scanner/>}/>
-          <Route path="/analyse" element={<Analyse/>}/>
-          <Route path="/heures" element={<Heures/>}/>
-          <Route path="/p/:ean" element={<Product/>}/>
-          <Route path="/404" element={<NotFound/>}/>
-          <Route path="*" element={<Navigate to="/" replace/>}/>
-        </Routes>
+        <Suspense fallback={<PageFallback/>}>
+          <Routes>
+            <Route path="/" element={<Affiche/>}/>
+            <Route path="/catalogue" element={<Catalogue/>}/>
+            <Route path="/dlc" element={<Dlc/>}/>
+            <Route path="/scan" element={<Scanner/>}/>
+            <Route path="/analyse" element={<Analyse/>}/>
+            <Route path="/heures" element={<Heures/>}/>
+            <Route path="/p/:ean" element={<Product/>}/>
+            <Route path="/404" element={<NotFound/>}/>
+            <Route path="*" element={<Navigate to="/" replace/>}/>
+          </Routes>
+        </Suspense>
         <MobileShell/>
       </div>
     </BrowserRouter>
