@@ -5,6 +5,40 @@ import { parseInfomilCsv, deriveWeek, buildLabel, titleCase, COLUMN_LABELS } fro
 import { computeStats, inferColumns, efficiency } from '../lib/analyseStats';
 import { money, num } from '../lib/format';
 import { useIsDesktop } from '../hooks/useIsDesktop';
+import { KpiTile } from '../components/charts/KpiTile';
+import { Sparkline } from '../components/charts/Sparkline';
+import { ScatterQuadrant } from '../components/charts/ScatterQuadrant';
+import { ParetoCurve } from '../components/charts/ParetoCurve';
+
+// Chronological series of saved weeks for the current rayon (max 8),
+// including the current unsaved import as a virtual last point.
+function rayonSeries(history, current) {
+  if (!current || !current.rayon) return [];
+  const rows = history
+    .filter(h => h.rayon === current.rayon && h.period_date)
+    .map(h => ({
+      week: h.week_label, date: h.period_date,
+      ca: h.total_ca ?? null, mpaf: h.total_mpaf ?? null,
+      uvc: h.total_uvc ?? null, casse: h.total_casse ?? null,
+    }));
+  if (current.periodDate && !rows.some(r => r.week === current.weekLabel)) {
+    rows.push({
+      week: current.weekLabel, date: current.periodDate,
+      ca: current.stats.total, mpaf: current.stats.totalMpaf,
+      uvc: current.stats.totalUvc, casse: current.stats.totalCasse ?? null,
+    });
+  }
+  rows.sort((a, b) => (a.date < b.date ? -1 : 1));
+  return rows.slice(-8);
+}
+
+function deltaOf(series, key, currentWeek) {
+  const i = series.findIndex(r => r.week === currentWeek);
+  if (i < 1) return null;
+  const cur = series[i][key], prev = series[i - 1][key];
+  if (cur == null || prev == null || prev === 0) return null;
+  return (cur - prev) / prev;
+}
 
 function copyEan(ean, e) {
   e.stopPropagation();
@@ -113,20 +147,6 @@ function Section({ title, subtitle, icon, children, accent }) {
         </div>
       </div>
       <div>{children}</div>
-    </div>
-  );
-}
-
-function StatCard({ label, value, sub, color }) {
-  return (
-    <div style={{
-      flex: 1, minWidth: 120,
-      borderRadius: 8, border: '0.5px solid var(--hairline)',
-      padding: '10px 12px', background: 'var(--canvas)',
-    }}>
-      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--stone)', marginBottom: 2 }}>{label}</div>
-      <div style={{ fontSize: 18, fontWeight: 600, fontFamily: 'var(--font-mono)', color: color || 'var(--charcoal)', letterSpacing: '-0.02em' }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: 'var(--steel)', marginTop: 1 }}>{sub}</div>}
     </div>
   );
 }
@@ -244,6 +264,14 @@ export function Analyse({ onSelectEan } = {}) {
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const stats = current?.stats;
+  const has = useCallback(
+    key => !current?.columns || current.columns.found.includes(key),
+    [current]
+  );
+  const series = rayonSeries(history, current);
+  const trends = key => (series.length >= 2 ? series.map(r => r[key]) : null);
+  const margeSeries = series.map(r => (r.ca ? (r.mpaf || 0) / r.ca * 100 : null));
+  const eanClick = onSelectEan || undefined; // for charts that pass a bare EAN
 
   // Load analysis history on mount, then auto-load the most recent one
   useEffect(() => {
@@ -550,16 +578,38 @@ export function Analyse({ onSelectEan } = {}) {
             {activeTab === 'overview' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  <StatCard label="CA Total TTC" value={money(stats.total)}
-                    sub={(stats.count ?? stats.rows) + ' références'} color="var(--charcoal)"/>
-                  <StatCard label="Marge (MPAF)" value={money(stats.totalMpaf)}
-                    sub={(stats.totalMpaf / stats.total * 100).toFixed(1) + '% de marge'} color="var(--brand-green)"/>
-                  <StatCard label="Unités vendues" value={num(stats.totalUvc)}
-                    sub={stats.totalUvc > 0 ? (stats.total / stats.totalUvc).toFixed(2) + ' €/u' : ''} color="var(--primary)"/>
-                  <StatCard label="Non vendus" value={num(stats.zeros.length)}
-                    sub={stats.zeros.length > 0 ? 'À retirer du linéaire' : 'Rien à signaler'}
-                    color={stats.zeros.length > 0 ? 'var(--warning)' : 'var(--steel)'}/>
+                  <KpiTile label="CA Total TTC" value={money(stats.total)}
+                    sub={(stats.count ?? stats.rows) + ' réfs'}
+                    delta={deltaOf(series, 'ca', current.weekLabel)} trend={trends('ca')}/>
+                  <KpiTile label="Marge (MPAF)" value={money(stats.totalMpaf)}
+                    delta={deltaOf(series, 'mpaf', current.weekLabel)} trend={trends('mpaf')}/>
+                  <KpiTile label="Taux de marge" value={(stats.total > 0 ? (stats.totalMpaf / stats.total * 100).toFixed(1) : '—') + ' %'}
+                    trend={series.length >= 2 ? margeSeries : null}/>
+                  <KpiTile label="Unités vendues" value={num(stats.totalUvc)}
+                    sub={stats.totalUvc > 0 ? (stats.total / stats.totalUvc).toFixed(2) + ' €/u' : ''}
+                    delta={deltaOf(series, 'uvc', current.weekLabel)} trend={trends('uvc')}/>
+                  {has('casse_paf') && (
+                    <KpiTile label="Casse" value={money(stats.totalCasse)}
+                      delta={deltaOf(series, 'casse', current.weekLabel)} upIsGood={false} trend={trends('casse')}/>
+                  )}
                 </div>
+
+                {current.rows ? (
+                  <>
+                    {has('mpaf_ht_pct') && (
+                      <Section title="Portefeuille CA × marge" subtitle="Chaque point est une référence — clique pour ouvrir la fiche" icon={<Icon.BarChart s={14}/>}>
+                        <ScatterQuadrant rows={current.rows} onSelectEan={eanClick}/>
+                      </Section>
+                    )}
+                    <Section title="Concentration du CA" subtitle="Références classées par CA décroissant" icon={<Icon.BarChart s={14}/>}>
+                      <ParetoCurve rows={current.rows}/>
+                    </Section>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 12, color: 'var(--steel)', padding: '4px 2px' }}>
+                    Analyse enregistrée avant la v2 — graphiques indisponibles. Réimporte le fichier CSV pour les activer.
+                  </div>
+                )}
 
                 {stats.stars.length > 0 && (
                   <Section title="Produits star" subtitle={stats.stars.length + ' produits avec CA > 300€ et marge > 20%'} icon={<Icon.Check s={14} c="var(--success)"/>} accent="mint">
@@ -587,7 +637,7 @@ export function Analyse({ onSelectEan } = {}) {
                   </Section>
                 )}
 
-                {stats.casse.length > 0 && (
+                {has('casse_paf') && stats.casse.length > 0 && (
                   <Section title="Casse" subtitle={stats.casse.length + ' produits avec pertes'} icon={<Icon.Warn s={14} c="var(--warning)"/>} accent="peach">
                     <MiniTable compact columns={[
                       { key: '#', label: '#', width: '24px', align: 'right' },
@@ -640,17 +690,19 @@ export function Analyse({ onSelectEan } = {}) {
                     { key: 'uvc', label: 'UVC', width: '60px', align: 'right' },
                   ]} rows={stats.topMpaf.map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
                 </Section>
-                <Section title="Meilleur rapport CA x marge x fréquence" icon={<Icon.Catalog s={14}/>}>
-                  <MiniTable columns={[
-                    { key: '#', label: '#', width: '30px', align: 'right' },
-                    { key: 'designation', label: 'Produit' },
-                    eanCol,
-                    { key: '_score', label: 'Score', width: '100px', align: 'right', mono: true, render: (_, r) => num(Math.round(efficiency(r))) },
-                    { key: 'ca_ttc', label: 'CA TTC', width: '110px', align: 'right', mono: true, render: v => money(v) },
-                    { key: 'mpaf_ht_pct', label: 'Marge %', width: '75px', align: 'right', render: v => v + '%' },
-                    { key: 'freq', label: 'Fréq.', width: '60px', align: 'right' },
-                  ]} rows={stats.topEff.map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
-                </Section>
+                {has('freq') && (
+                  <Section title="Meilleur rapport CA x marge x fréquence" icon={<Icon.Catalog s={14}/>}>
+                    <MiniTable columns={[
+                      { key: '#', label: '#', width: '30px', align: 'right' },
+                      { key: 'designation', label: 'Produit' },
+                      eanCol,
+                      { key: '_score', label: 'Score', width: '100px', align: 'right', mono: true, render: (_, r) => num(Math.round(efficiency(r))) },
+                      { key: 'ca_ttc', label: 'CA TTC', width: '110px', align: 'right', mono: true, render: v => money(v) },
+                      { key: 'mpaf_ht_pct', label: 'Marge %', width: '75px', align: 'right', render: v => v + '%' },
+                      { key: 'freq', label: 'Fréq.', width: '60px', align: 'right' },
+                    ]} rows={stats.topEff.map((r, i) => ({ ...r, '#': i + 1 }))} onRowClick={rowClick}/>
+                  </Section>
+                )}
               </div>
             )}
 
