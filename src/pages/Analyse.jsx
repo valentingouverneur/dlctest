@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Icon } from '../icons';
-import { saveAnalysis, listAnalyses, getAnalysis } from '../lib/analyses';
+import { saveAnalysis, listAnalyses, getAnalysis, getPreviousAnalysis } from '../lib/analyses';
 import { parseInfomilCsv, deriveWeek, buildLabel, titleCase, COLUMN_LABELS } from '../lib/infomil';
 import { computeStats, inferColumns, efficiency } from '../lib/analyseStats';
 import { money, num } from '../lib/format';
@@ -9,6 +9,7 @@ import { KpiTile } from '../components/charts/KpiTile';
 import { Sparkline } from '../components/charts/Sparkline';
 import { ScatterQuadrant } from '../components/charts/ScatterQuadrant';
 import { ParetoCurve } from '../components/charts/ParetoCurve';
+import { DeltaBars } from '../components/charts/DeltaBars';
 
 // Chronological series of saved weeks for the current rayon (max 8),
 // including the current unsaved import as a virtual last point.
@@ -287,6 +288,35 @@ export function Analyse({ onSelectEan } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const [compare, setCompare] = useState(null); // null | 'loading' | 'none' | { … }
+
+  useEffect(() => {
+    if (activeTab !== 'compare' || !current) return;
+    if (!current.rows || !current.rayon || !current.periodDate) { setCompare('none'); return; }
+    let cancelled = false;
+    setCompare('loading');
+    (async () => {
+      const prev = await getPreviousAnalysis(current.rayon, current.periodDate);
+      if (cancelled) return;
+      if (!prev || !Array.isArray(prev.rows) || prev.rows.length === 0) { setCompare('none'); return; }
+      const prevBy = new Map(prev.rows.map(r => [r.ean, r]));
+      const curBy = new Map(current.rows.map(r => [r.ean, r]));
+      const deltas = [];
+      for (const r of current.rows) {
+        const p = prevBy.get(r.ean);
+        if (p) deltas.push({ ean: r.ean, designation: r.designation, delta: (r.ca_ttc || 0) - (p.ca_ttc || 0) });
+      }
+      const gainers = deltas.filter(d => d.delta > 0).sort((a, b) => b.delta - a.delta).slice(0, 10);
+      const losers = deltas.filter(d => d.delta < 0).sort((a, b) => a.delta - b.delta).slice(0, 10);
+      const appeared = current.rows.filter(r => !prevBy.has(r.ean))
+        .sort((a, b) => (b.ca_ttc || 0) - (a.ca_ttc || 0)).slice(0, 15);
+      const disappeared = prev.rows.filter(r => !curBy.has(r.ean))
+        .sort((a, b) => (b.ca_ttc || 0) - (a.ca_ttc || 0)).slice(0, 15);
+      setCompare({ prevLabel: prev.file_name || prev.week_label || 'semaine précédente', gainers, losers, appeared, disappeared });
+    })().catch(() => { if (!cancelled) setCompare('none'); });
+    return () => { cancelled = true; };
+  }, [activeTab, current]);
+
   const refreshHistory = useCallback(async () => {
     try { setHistory(await listAnalyses()); } catch {}
   }, []);
@@ -317,6 +347,7 @@ export function Analyse({ onSelectEan } = {}) {
   const handleFile = useCallback(async (file) => {
     setLoading(true);
     setError(null);
+    setCompare(null);
     try {
       const text = await file.text();
       const parsed = parseInfomilCsv(text);
@@ -356,6 +387,7 @@ export function Analyse({ onSelectEan } = {}) {
     setLoading(true);
     setError(null);
     setReport(null);
+    setCompare(null);
     try {
       const full = await getAnalysis(entry.id);
       if (!full || (!full.stats && !full.rows)) {
@@ -389,10 +421,12 @@ export function Analyse({ onSelectEan } = {}) {
     setReport(null);
     setSaveState(null);
     setSaveError(null);
+    setCompare(null);
   };
 
   const tabs = [
     { key: 'overview', label: 'Vue d\'ensemble' },
+    { key: 'compare', label: 'Comparaison' },
     { key: 'top', label: 'Top ventes' },
     { key: 'stars', label: 'Produits star' },
     { key: 'risky', label: 'À risque' },
@@ -661,6 +695,44 @@ export function Analyse({ onSelectEan } = {}) {
                       ))}
                     </div>
                   </Section>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'compare' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {compare === 'loading' && <LoadingState message="Comparaison en cours…"/>}
+                {compare === 'none' && (
+                  <div style={{ textAlign: 'center', padding: 48, color: 'var(--steel)', fontSize: 13, lineHeight: 1.6 }}>
+                    Pas de semaine précédente comparable pour ce rayon.<br/>
+                    Importe les exports chaque semaine : la comparaison apparaîtra automatiquement.
+                  </div>
+                )}
+                {compare && typeof compare === 'object' && (
+                  <>
+                    <Section title={'Évolution du CA vs ' + compare.prevLabel} subtitle="Plus fortes hausses et baisses par référence" icon={<Icon.BarChart s={14}/>}>
+                      <DeltaBars items={[...compare.gainers, ...compare.losers]} onSelectEan={eanClick}/>
+                    </Section>
+                    {compare.appeared.length > 0 && (
+                      <Section title="Nouvelles références" subtitle={compare.appeared.length + ' réfs absentes de ' + compare.prevLabel} icon={<Icon.Check s={14} c="var(--success)"/>} accent="mint">
+                        <MiniTable compact columns={[
+                          { key: 'designation', label: 'Produit' },
+                          eanCol,
+                          { key: 'ca_ttc', label: 'CA TTC', width: '100px', align: 'right', mono: true, render: v => money(v) },
+                          { key: 'uvc', label: 'UVC', width: '55px', align: 'right' },
+                        ]} rows={compare.appeared} onRowClick={rowClick}/>
+                      </Section>
+                    )}
+                    {compare.disappeared.length > 0 && (
+                      <Section title="Références disparues" subtitle={'Présentes dans ' + compare.prevLabel + ', absentes cette semaine'} icon={<Icon.Close s={14} c="var(--stone)"/>}>
+                        <MiniTable compact columns={[
+                          { key: 'designation', label: 'Produit' },
+                          eanCol,
+                          { key: 'ca_ttc', label: 'CA TTC préc.', width: '110px', align: 'right', mono: true, render: v => money(v) },
+                        ]} rows={compare.disappeared} onRowClick={rowClick}/>
+                      </Section>
+                    )}
+                  </>
                 )}
               </div>
             )}
