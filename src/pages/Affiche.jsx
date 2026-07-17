@@ -45,6 +45,7 @@ function PackshotModal({ packshots, currentUrl, saving, onSelect, onClose }) {
               <img
                 src={url}
                 alt=""
+                loading="lazy" decoding="async"
                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                 onError={e => { e.currentTarget.style.opacity = '0.3'; }}
               />
@@ -99,6 +100,7 @@ function AfficheCard({ entry, onImageClick, onCardClick }) {
           ) : resolvedImage ? (
             <img
               src={resolvedImage} alt=""
+              loading="lazy" decoding="async"
               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
               onError={e => { e.currentTarget.style.opacity = '0'; }}
             />

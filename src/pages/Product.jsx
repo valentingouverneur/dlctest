@@ -91,6 +91,7 @@ function BingImageBanner({ imageUrl, onAccept, onDismiss }) {
         <img
           src={imageUrl}
           alt=""
+          loading="lazy" decoding="async"
           style={{ width: 52, height: 52, borderRadius: 6, objectFit: 'contain', background: 'white', border: '0.5px solid var(--hairline)', flexShrink: 0 }}
           onError={e => { e.target.style.display = 'none'; }}
         />

@@ -250,6 +250,7 @@ function AfficheDesktopCard({ product, selected, onSelect }) {
           {product.image_url ? (
             <img
               src={product.image_url} alt=""
+              loading="lazy" decoding="async"
               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
               onError={e => { e.currentTarget.style.opacity = '0'; }}
             />
@@ -491,6 +492,7 @@ function DetailPanel({ product, onUpdate, onClose, overlay }) {
                 >
                   <img
                     src={url} alt=""
+                    loading="lazy" decoding="async"
                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                     onError={e => { e.currentTarget.style.opacity = '0.3'; }}
                   />

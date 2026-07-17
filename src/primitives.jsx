@@ -56,6 +56,7 @@ export function Packshot({ product, size = 96, radius = 10, hint = true, missing
         border: '1px solid var(--hairline)',
       }}>
         <img src={product.imageUrl} alt={product.title}
+          loading="lazy" decoding="async"
           style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}/>
       </div>
     );
