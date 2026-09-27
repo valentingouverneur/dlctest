@@ -9,6 +9,8 @@ import { getRecentScans } from '../lib/scans';
 import { searchPackshots } from '../lib/bingImages';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { deleteDlcItem, enrichDlcItem, getDlcItems, getDlcItemsAsync, getDlcUrgency, getLastDlcSyncError, updateDlcItemStatus } from '../lib/dlcItems';
+import { signOut } from '../lib/auth';
+import { useAuth } from '../hooks/useAuth';
 import { Analyse } from './Analyse';
 import { Heures } from './Heures';
 
@@ -46,7 +48,7 @@ function catTone(category) {
 }
 
 // ─── Sidebar ───────────────────────────────────────────────────────
-function DesktopSidebar({ activeNav, onNav, scanCount }) {
+function DesktopSidebar({ activeNav, onNav, scanCount, user }) {
   return (
     <div style={{
       width: 220, flexShrink: 0,
@@ -88,6 +90,28 @@ function DesktopSidebar({ activeNav, onNav, scanCount }) {
           </div>
           <div style={{ fontSize: 11, color: 'var(--stone)' }}>scans aujourd'hui</div>
         </div>
+      </div>
+      {/* Compte + déconnexion */}
+      <div style={{ padding: '8px 10px 2px', borderTop: '0.5px solid var(--hairline)', marginTop: 8 }}>
+        {user?.email && (
+          <div style={{
+            fontSize: 11, color: 'var(--stone)', marginBottom: 6,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {user.email}
+          </div>
+        )}
+        <button
+          onClick={() => signOut().catch(() => {})}
+          style={{
+            width: '100%', height: 28, borderRadius: 6,
+            border: '0.5px solid var(--hairline-strong)',
+            background: 'transparent', cursor: 'pointer',
+            fontSize: 12, color: 'var(--steel)', fontFamily: 'inherit',
+          }}
+        >
+          Se déconnecter
+        </button>
       </div>
     </div>
   );
@@ -678,6 +702,7 @@ function DlcDesktopView() {
 export function DesktopShell() {
   const showPanelAsColumn = useIsDesktop(1024);
   const [activeNav, setActiveNav] = useState('affiche');
+  const { user } = useAuth();
 
   // Catalogue state
   const [products, setProducts] = useState([]);
@@ -921,7 +946,7 @@ export function DesktopShell() {
 
   return (
     <div className="dlc-root" style={{ height: '100vh', display: 'flex', overflow: 'hidden' }}>
-      <DesktopSidebar activeNav={activeNav} onNav={handleNav} scanCount={scanCount}/>
+      <DesktopSidebar activeNav={activeNav} onNav={handleNav} scanCount={scanCount} user={user}/>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
 

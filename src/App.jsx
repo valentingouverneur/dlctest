@@ -8,6 +8,7 @@ import { getTodayCount } from './lib/scanHistory';
 import { Icon } from './icons';
 import { useAuth } from './hooks/useAuth';
 import { Login } from './pages/Login';
+import { signOut } from './lib/auth';
 
 // Split heavy pages out of the initial bundle. Affiche (home), Scanner and
 // Product stay eager: the scan -> product flow must never wait on a chunk.
@@ -124,6 +125,20 @@ function Drawer({ open, onClose, onNav }) {
             </div>
             <div style={{ fontSize: 11, color: 'var(--stone)' }}>scans aujourd'hui</div>
           </div>
+        </div>
+        {/* Déconnexion */}
+        <div style={{ padding: '8px 14px', borderTop: '0.5px solid var(--hairline)', margin: '0 8px 8px' }}>
+          <button
+            onClick={() => signOut().catch(() => {})}
+            style={{
+              width: '100%', height: 32, borderRadius: 6,
+              border: '0.5px solid var(--hairline-strong)',
+              background: 'transparent', cursor: 'pointer',
+              fontSize: 12.5, color: 'var(--steel)', fontFamily: 'inherit',
+            }}
+          >
+            Se déconnecter
+          </button>
         </div>
       </div>
     </>
