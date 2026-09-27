@@ -11,7 +11,7 @@ import { useIsDesktop } from '../hooks/useIsDesktop';
 const DAY_LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const DAY_NAMES = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 // Bar chart: light + dark step of the app's primary hue; identity is also
-// carried by position (base below / dépassement above the 39h line).
+// carried by position (base below / dépassement above the contract line).
 const BAR_BASE = '#beb2ec';
 const BAR_OVER = 'var(--primary)';
 
