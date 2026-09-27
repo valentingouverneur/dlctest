@@ -6,6 +6,8 @@ import { Product } from './pages/Product';
 import { useIsDesktop } from './hooks/useIsDesktop';
 import { getTodayCount } from './lib/scanHistory';
 import { Icon } from './icons';
+import { useAuth } from './hooks/useAuth';
+import { Login } from './pages/Login';
 
 // Split heavy pages out of the initial bundle. Affiche (home), Scanner and
 // Product stay eager: the scan -> product flow must never wait on a chunk.
@@ -151,7 +153,11 @@ function ScanFab() {
 
 // ─── App ─────────────────────────────────────────────────────────────
 export function App() {
+  const { user, loading } = useAuth();
   const isDesktop = useIsDesktop(768);
+
+  if (loading) return <PageFallback/>;
+  if (!user) return <Login/>;
 
   if (isDesktop) {
     return (
