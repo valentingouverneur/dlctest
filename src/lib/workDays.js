@@ -162,7 +162,7 @@ const DEFAULT_TEMPLATE = {
   3: [{ start: '05:00', end: '10:00' }, { start: '14:00', end: '17:00' }],
   4: [{ start: '05:00', end: '10:00' }, { start: '14:00', end: '17:00' }],
   5: [{ start: '05:00', end: '10:00' }, { start: '14:00', end: '17:00' }],
-  6: [],
+  6: [{ start: '05:00', end: '10:00' }, { start: '14:00', end: '17:00' }],
 };
 
 export function getTemplate() {
@@ -179,7 +179,7 @@ export function saveTemplate(template) {
 
 export function getContractHours() {
   const v = parseFloat(localStorage.getItem(CONTRACT_KEY));
-  return Number.isFinite(v) && v > 0 ? v : 39;
+  return Number.isFinite(v) && v > 0 ? v : 43;
 }
 
 export function saveContractHours(hours) {
