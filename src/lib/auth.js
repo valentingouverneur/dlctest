@@ -14,11 +14,13 @@ export async function signOut() {
 }
 
 export async function getSession() {
+  if (!supabase) return null;
   const { data: { session } } = await supabase.auth.getSession();
   return session;
 }
 
 export function onAuthChange(callback) {
+  if (!supabase) return () => {};
   const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
     callback(session);
   });
