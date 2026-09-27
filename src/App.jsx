@@ -171,8 +171,8 @@ export function App() {
   const { user, loading } = useAuth();
   const isDesktop = useIsDesktop(768);
 
-  if (loading) return <PageFallback/>;
-  if (!user) return <Login/>;
+  // if (loading) return <PageFallback/>;
+  // if (!user) return <Login/>;
 
   if (isDesktop) {
     return (
