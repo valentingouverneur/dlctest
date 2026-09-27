@@ -61,8 +61,25 @@ export function Heures() {
   const [saveError, setSaveError] = useState(null);
   const [savedFlash, setSavedFlash] = useState(false);
 
-  const [contract, setContract] = useState(getContractHours);
-  const [template, setTemplate] = useState(getTemplate);
+  const [contract, setContract] = useState(() => {
+    const stored = localStorage.getItem('dlc_contract_hours');
+    if (stored === '39') saveContractHours(43);
+    return getContractHours();
+  });
+
+  const [template, setTemplate] = useState(() => {
+    try {
+      const raw = localStorage.getItem('dlc_work_template');
+      if (raw) {
+        const tpl = JSON.parse(raw);
+        if (Array.isArray(tpl[6]) && tpl[6].length === 0) {
+          tpl[6] = [{ start: '05:00', end: '10:00' }, { start: '14:00', end: '17:00' }];
+          saveTemplate(tpl);
+        }
+      }
+    } catch {}
+    return getTemplate();
+  });
   const [showSettings, setShowSettings] = useState(false);
   const [selWeek, setSelWeek] = useState(null);  // monday key of selected bar
 
@@ -247,9 +264,8 @@ export function Heures() {
             </div>
             <button
               onClick={() => setEditDate(d => addDays(d, 1))}
-              disabled={editDate >= today}
               className="btn btn-ghost"
-              style={{ width: 32, height: 32, padding: 0, justifyContent: 'center', opacity: editDate >= today ? 0.35 : 1 }}
+              style={{ width: 32, height: 32, padding: 0, justifyContent: 'center' }}
             >
               <Icon.ChevronRight s={14} c="var(--charcoal)"/>
             </button>
@@ -264,13 +280,17 @@ export function Heures() {
               const isFuture = k > today;
               const state = row ? (min > 0 ? 'worked' : 'off') : (isFuture ? 'future' : 'missing');
               return (
-                <button key={k} onClick={() => !isFuture && setEditDate(k)}
+                <button key={k} onClick={() => setEditDate(k)}
                   style={{
-                    flex: 1, height: 46, borderRadius: 8, cursor: isFuture ? 'default' : 'pointer',
-                    border: isEdit ? '1.5px solid var(--primary)' : '0.5px solid var(--hairline)',
+                    flex: 1, height: 46, borderRadius: 8, cursor: 'pointer',
+                    border: isEdit
+                      ? '1.5px solid var(--primary)'
+                      : isFuture
+                        ? '1px dashed var(--hairline-strong)'
+                        : '0.5px solid var(--hairline)',
                     background: state === 'worked' ? 'var(--tint-lavender)' : 'var(--canvas)',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
-                    opacity: isFuture ? 0.4 : 1, padding: 0, fontFamily: 'inherit',
+                    opacity: 1, padding: 0, fontFamily: 'inherit',
                   }}
                 >
                   <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--stone)' }}>{DAY_LETTERS[i]}</span>
