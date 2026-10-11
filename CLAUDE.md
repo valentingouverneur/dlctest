@@ -13,6 +13,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Desktop shell with sidebar navigation and table view
 - Integration with Open Food Facts API for product metadata
 - Image search via Google Custom Search API for product photos
+- DLC calendar (expiry tracking per item, synced via Supabase `dlc_items`)
+- Auth: Supabase Google OAuth (src/lib/auth.js, hooks/useAuth.js, pages/Login.jsx); guard in App.jsx currently commented out ("temp: disable auth guard")
+- Analyse rayon (Infomil CSV import + KPI/scatter/pareto/week-over-week charts)
+- Heures (work-hours log per day, ISO-week totals vs contract)
+- PWA (manifest + offline-shell service worker in public/)
 
 ## Stack and Commands
 
@@ -38,25 +43,38 @@ Run "npm run preview".
 
 Add to .env.local (git-ignored). Vite exposes them via import.meta.env.*.
 
-**No test runner.** UI/integration testing is done manually in-browser.
+**Tests:** `npm test` runs the plain-Node check scripts in scripts/check-*.mjs (Infomil parser + analyseStats, workDays time/week math). No framework: each script prints `ALL CHECKS PASSED` and exits 1 on failure. Modules they import must use explicit `.js` extensions on relative imports so Node can resolve them. UI is tested manually in-browser.
+
+**Supabase migrations:** supabase/schema.sql (full schema) + dated supabase/YYYY-MM-DD-*.sql deltas, run by hand in the Supabase SQL Editor. supabase/auth-rls.sql restricts every table to authenticated users — only safe to run once the auth guard in App.jsx is re-enabled.
 
 ## Architecture and Data Flow
 
 ### Routing and Layout
 
-**Mobile (default, <1024px):**
-- Single-page app with bottom tab bar
-- Routes: / (Affiche), /catalogue, /scan, /p/:ean (Product)
-- Tab bar hidden on /scan and product detail pages
-- Hook useIsDesktop(1024) detects breakpoint
+**Mobile (default, <768px):**
+- Single-page app: fixed top bar with hamburger drawer + floating scan FAB (MobileShell in App.jsx)
+- Routes: / (Affiche), /catalogue, /dlc, /scan, /analyse, /heures, /p/:ean (Product)
+- Shell hidden on /scan and /p/* pages
+- App.jsx uses useIsDesktop(768) to pick mobile vs desktop; heavy pages are React.lazy chunks
 
-**Desktop (1024px+):**
-- DesktopShell replaces entire router
-- Two-column layout: 220px fixed sidebar + flex main area
-- Sidebar: nav buttons (Affiche, Catalogue, DLC Calendar, Settings) + session stats
-- Main area renders different views per selected nav item
+**Desktop (768px+):**
+- DesktopShell replaces the entire router (no URLs: navigation is local `activeNav` state)
+- Two-column layout: 220px fixed sidebar + flex main area; detail panel becomes a column at 1024px+
+- Sidebar: Affiche, Catalogue, DLC, Analyse, Heures, Settings + session stats
+- DesktopShell re-implements its own table/detail/DLC views (not shared with mobile pages)
 
-**Viewport:** viewport-fit=cover in index.html; Scanner and BottomTabBar use env(safe-area-inset-*) for notch support.
+**Viewport:** viewport-fit=cover in index.html; Scanner and sheets use env(safe-area-inset-*) for notch support.
+
+### Other modules
+
+- **Dlc (src/pages/Dlc.jsx, DlcQuickSheet.jsx, lib/dlcItems.js):** expiry items grouped by urgency; quick-add sheet opened from the scanner. Urgency: expired / today / tomorrow / soon (≤3 days) / later.
+- **Analyse rayon (pages/Analyse.jsx, lib/infomil.js, lib/analyseStats.js, lib/analyses.js, components/charts/*):** Infomil CSV import, saved per rayon/week in `analyses`.
+- **Heures (pages/Heures.jsx, lib/workDays.js):** `work_days` table; journée type + contract hours in localStorage.
+- **api/lookup-product.js:** Open Food Facts proxy (used by lib/openFoodFacts.js).
+
+**Supabase tables:** products, scans, dlc_items, work_days, analyses.
+
+**Feature workflow:** specs in docs/superpowers/specs, implementation plans in docs/superpowers/plans.
 
 ### Core Pages
 
@@ -101,7 +119,7 @@ Add to .env.local (git-ignored). Vite exposes them via import.meta.env.*.
 
 **Supabase (src/lib/supabase.js)**
 - Single client initialized with env vars
-- Tables: products (ean, title, brand, weight, category, image_url, created_at), scans (ean, scanned_at)
+- Tables: products (ean, title, brand, weight, category, image_url, created_at), scans (ean, scanned_at) — see "Supabase tables" above for the full list
 
 **Products API (src/lib/products.js)**
 - getProductByEan(ean) — fetch single product
