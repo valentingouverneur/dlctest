@@ -10,6 +10,17 @@ import { DlcQuickSheet } from './DlcQuickSheet';
 
 const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'];
 
+// GTIN check digit (EAN-8/13): weights 3,1,3,1… from the rightmost data digit.
+// A single misread digit fails this, so a bad read goes to the low-confidence
+// confirm sheet instead of opening the wrong product.
+export function isValidGtin(code) {
+  if (!/^\d+$/.test(code)) return false;
+  const digits = code.split('').map(Number);
+  const check = digits.pop();
+  const sum = digits.reverse().reduce((s, d, i) => s + d * (i % 2 === 0 ? 3 : 1), 0);
+  return (10 - (sum % 10)) % 10 === check;
+}
+
 // Haptic + audio feedback on detection, like a real store scanner. Everything
 // is best-effort: no vibration API on iOS, AudioContext may be suspended.
 let audioCtx = null;
@@ -239,9 +250,13 @@ export function Scanner() {
         if (codes?.length && !navigatingRef.current) {
           const raw = codes[0].rawValue;
           if (raw && /^\d{8,13}$/.test(raw)) {
-            const isStandard = raw.length === 8 || raw.length === 13;
+            const isStandard = (raw.length === 8 || raw.length === 13) && isValidGtin(raw);
             if (!isStandard) {
-              const masked = raw.slice(0, -3) + '●●' + raw.slice(-1);
+              // Bad checksum on a normal-length code: show it in full so it can
+              // be compared with the digits printed under the barcode.
+              const masked = (raw.length === 8 || raw.length === 13)
+                ? raw
+                : raw.slice(0, -3) + '●●' + raw.slice(-1);
               setLowConf({ raw, masked });
               return;
             }
