@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { Packshot, CopyField, SideItem, Pill, ImageModal } from '../primitives';
 import { Icon } from '../icons';
@@ -11,8 +11,17 @@ import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { deleteDlcItem, enrichDlcItem, getDlcItems, getDlcItemsAsync, getDlcUrgency, getLastDlcSyncError, updateDlcItemStatus } from '../lib/dlcItems';
 import { signOut } from '../lib/auth';
 import { useAuth } from '../hooks/useAuth';
-import { Analyse } from './Analyse';
-import { Heures } from './Heures';
+// Analyse and Heures are heavy and rarely opened: keep them out of the shell chunk.
+const Analyse = lazy(() => import('./Analyse').then(m => ({ default: m.Analyse })));
+const Heures = lazy(() => import('./Heures').then(m => ({ default: m.Heures })));
+
+function LazyFallback() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 48 }}>
+      <Icon.Spinner s={20} c="var(--primary)"/>
+    </div>
+  );
+}
 
 const CATEGORIES = ['Glaces', 'Viande', 'Poisson', 'Légumes', 'Pizza', 'Plats cuisinés', 'Frites', 'Entrée'];
 const GRID = '20px 56px 1.8fr 1fr 88px 148px 118px';
@@ -1097,9 +1106,9 @@ export function DesktopShell() {
                 Paramètres à venir.
               </div>
             ) : activeNav === 'analyse' ? (
-              <Analyse onSelectEan={selectByEan}/>
+              <Suspense fallback={<LazyFallback/>}><Analyse onSelectEan={selectByEan}/></Suspense>
             ) : activeNav === 'heures' ? (
-              <Heures/>
+              <Suspense fallback={<LazyFallback/>}><Heures/></Suspense>
             ) : activeNav === 'affiche' ? (
               <>
                 <TableHeader
