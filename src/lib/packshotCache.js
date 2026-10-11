@@ -1,4 +1,5 @@
-const KEY = 'dlc_packshots';
+// v2: results before 2026-10-11 were unfiltered (OFF duplicates, logos).
+const KEY = 'dlc_packshots_v2';
 const TTL = 7 * 24 * 60 * 60 * 1000; // 7 jours
 
 function load() {

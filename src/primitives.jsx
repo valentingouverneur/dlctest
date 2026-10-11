@@ -34,6 +34,9 @@ export function ImageModal({ src, onClose }) {
 
 // Stripe placeholder packshot. Renders brand initials in mono with per-product warm tint.
 export function Packshot({ product, size = 96, radius = 10, hint = true, missing = false }) {
+  // Remote packshots (Google results especially) can 403 on hotlinking or
+  // disappear: fall back to the initials tile instead of an empty white box.
+  const [brokenUrl, setBrokenUrl] = useState(null);
   if (missing) {
     return (
       <div style={{
@@ -47,7 +50,7 @@ export function Packshot({ product, size = 96, radius = 10, hint = true, missing
       </div>
     );
   }
-  if (product?.imageUrl) {
+  if (product?.imageUrl && product.imageUrl !== brokenUrl) {
     return (
       <div style={{
         width: size, height: size, borderRadius: radius,
@@ -57,6 +60,7 @@ export function Packshot({ product, size = 96, radius = 10, hint = true, missing
       }}>
         <img src={product.imageUrl} alt={product.title}
           loading="lazy" decoding="async"
+          onError={() => setBrokenUrl(product.imageUrl)}
           style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}/>
       </div>
     );
