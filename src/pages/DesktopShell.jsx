@@ -643,6 +643,7 @@ function DlcDesktopView() {
 
   const urgencyMeta = (item) => {
     const u = getDlcUrgency(item);
+    if (u === 'expired') return { label: 'Dépassée', bg: 'var(--tint-rose)', color: 'var(--error)' };
     if (u === 'today') return { label: 'Aujourd’hui', bg: 'var(--tint-peach)', color: 'var(--warning)' };
     if (u === 'tomorrow') return { label: 'Demain', bg: 'oklch(0.96 0.05 80)', color: 'oklch(0.55 0.12 70)' };
     if (u === 'soon') return { label: 'Bientôt', bg: 'var(--tint-lavender)', color: 'var(--primary)' };

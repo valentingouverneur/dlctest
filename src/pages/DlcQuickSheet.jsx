@@ -3,14 +3,17 @@ import { Packshot } from '../primitives';
 import { Icon } from '../icons';
 import { saveDlcItem } from '../lib/dlcItems';
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
-
+// Local-time YYYY-MM-DD: toISOString() is UTC, which in France returns
+// yesterday's date between midnight and 1-2am.
 function addDaysIso(days) {
   const d = new Date();
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function todayIso() {
+  return addDaysIso(0);
 }
 
 export function DlcQuickSheet({ product, onClose, onSaved }) {

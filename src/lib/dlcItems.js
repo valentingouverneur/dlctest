@@ -267,7 +267,8 @@ export function getDlcUrgency(item, today = new Date()) {
   start.setHours(0, 0, 0, 0);
   const expiry = new Date(`${item.expiryDate}T00:00:00`);
   const days = Math.round((expiry.getTime() - start.getTime()) / 86400000);
-  if (days <= 0) return 'today';
+  if (days < 0) return 'expired';
+  if (days === 0) return 'today';
   if (days === 1) return 'tomorrow';
   if (days <= 3) return 'soon';
   return 'later';
