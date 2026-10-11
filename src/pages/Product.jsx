@@ -74,12 +74,19 @@ function OFFBanner({ product, imageUrl, onSaved, onDismiss }) {
 function BingImageBanner({ imageUrl, onAccept, onDismiss }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [err, setErr] = useState(null);
 
   const handleAccept = async () => {
     setSaving(true);
-    await onAccept(imageUrl);
-    setSaved(true);
-    setSaving(false);
+    setErr(null);
+    try {
+      await onAccept(imageUrl);
+      setSaved(true);
+    } catch (e) {
+      setErr(e.message || "Erreur lors de l'enregistrement");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (saved) return null;
@@ -99,6 +106,7 @@ function BingImageBanner({ imageUrl, onAccept, onDismiss }) {
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>
             Packshot trouvé · Enregistrer ?
           </div>
+          {err && <div style={{ fontSize: 12, color: 'var(--err)', marginBottom: 6 }}>{err}</div>}
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={handleAccept} disabled={saving} className="btn btn-primary" style={{ height: 28, fontSize: 12, padding: '0 10px' }}>
               {saving ? '…' : <><Icon.Check s={12} c="white"/> Oui</>}
@@ -217,17 +225,14 @@ export function Product() {
 
   // Accept Bing image — save to Supabase
   const acceptBingImage = async (url) => {
+    // Save first and let errors reach the banner, so a failed write doesn't
+    // look like a saved image. OFF products are saved via "Ajouter au catalogue".
+    if (product) {
+      const updated = await updateProduct(product.ean, { image_url: url });
+      setProduct(updated);
+    }
     setBingImageUrl(url);
     setBingDismissed(true); // hide banner
-    const p = product || offProduct;
-    if (!p) return;
-    try {
-      if (product) {
-        const updated = await updateProduct(product.ean, { image_url: url });
-        setProduct(updated);
-      }
-      // For OFF products, will be saved when "Ajouter au catalogue" is clicked
-    } catch {}
   };
 
   // Loading states
