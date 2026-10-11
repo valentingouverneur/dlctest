@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node scripts/check-infomil.mjs && node scripts/check-workdays.mjs && node scripts/check-packshots.mjs"
+    "test": "node scripts/check-infomil.mjs && node scripts/check-workdays.mjs && node scripts/check-packshots.mjs && node scripts/check-packshot-cache.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",

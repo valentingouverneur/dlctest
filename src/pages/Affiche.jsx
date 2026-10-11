@@ -4,7 +4,7 @@ import { getHistory } from '../lib/scanHistory';
 import { getRecentScans } from '../lib/scans';
 import { getProductByEan, updateProduct, createProduct } from '../lib/products';
 import { fetchFromOFF } from '../lib/openFoodFacts';
-import { searchPackshots } from '../lib/bingImages';
+import { searchPackshots, AUTO_PACKSHOT_LIMIT } from '../lib/bingImages';
 import { Icon } from '../icons';
 
 function PackshotModal({ packshots, currentUrl, saving, onSelect, onClose }) {
@@ -196,7 +196,8 @@ export function Affiche() {
           try { product = await fetchFromOFF(entry.ean); } catch {}
         }
 
-        const needsFetch = !product?.image_url || product.source === 'openfoodfacts';
+        const needsFetch = idx < AUTO_PACKSHOT_LIMIT
+          && (!product?.image_url || product.source === 'openfoodfacts');
         setItems(prev => prev.map((it, i) =>
           i === idx ? { ...it, product, loadingPackshots: needsFetch && !!(product?.title || entry.title) } : it
         ));

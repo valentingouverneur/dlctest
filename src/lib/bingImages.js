@@ -1,5 +1,10 @@
 import { getCachedPackshots, setCachedPackshots } from './packshotCache';
 
+// Affiche lists every scan ever made, but only the most recent ones need a
+// packshot right away. Older rows search on click, so opening the page
+// doesn't spend the Google CSE daily quota (100 free) on the whole history.
+export const AUTO_PACKSHOT_LIMIT = 20;
+
 async function fetchPackshots(title, brand, count, ean) {
   // Cache hit — no API call
   if (ean) {

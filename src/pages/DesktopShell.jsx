@@ -6,7 +6,7 @@ import { searchProducts, getProductByEan, updateProduct, createProduct, deletePr
 import { fetchFromOFF } from '../lib/openFoodFacts';
 import { getTodayCount, getHistory } from '../lib/scanHistory';
 import { getRecentScans } from '../lib/scans';
-import { searchPackshots } from '../lib/bingImages';
+import { searchPackshots, AUTO_PACKSHOT_LIMIT } from '../lib/bingImages';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { deleteDlcItem, enrichDlcItem, getDlcItems, getDlcItemsAsync, getDlcUrgency, getLastDlcSyncError, updateDlcItemStatus } from '../lib/dlcItems';
 import { signOut } from '../lib/auth';
@@ -818,7 +818,7 @@ export function DesktopShell() {
       }
 
       // Fetch Bing packshots for items without images (fire-and-forget)
-      products.forEach(async (p) => {
+      products.slice(0, AUTO_PACKSHOT_LIMIT).forEach(async (p) => {
         if ((p.image_url && p.source !== 'openfoodfacts') || !p.title || p.title === p.ean) return;
         const packshots = await searchPackshots(p.title, p.brand, 3, p.ean).catch(() => []);
         if (cancelled || packshots.length === 0) return;
